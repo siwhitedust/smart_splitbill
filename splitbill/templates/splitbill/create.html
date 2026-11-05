@@ -1,0 +1,533 @@
+{% extends 'splitbill/base.html' %}
+{% load static %}
+
+{% block title %}Buat Splitbill Baru - Smart Splitbill{% endblock %}
+
+{% block content %}
+<div class="container create-container">
+    <!-- Stepper Navigation -->
+    <div class="stepper-nav">
+        <div class="stepper-item active" data-step="1">
+            <span class="stepper-number">1</span>
+            <span class="stepper-label">Foto Struk</span>
+        </div>
+        <div class="stepper-divider"></div>
+        <div class="stepper-item" data-step="2">
+            <span class="stepper-number">2</span>
+            <span class="stepper-label">Periksa Hasil</span>
+        </div>
+        <div class="stepper-divider"></div>
+        <div class="stepper-item" data-step="3">
+            <span class="stepper-number">3</span>
+            <span class="stepper-label">Bagi Pesanan</span>
+        </div>
+        <div class="stepper-divider"></div>
+        <div class="stepper-item" data-step="4">
+            <span class="stepper-number">4</span>
+            <span class="stepper-label">Review &amp; Simpan</span>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         STEP 1: UPLOAD / FOTO STRUK & OCR
+         ======================================================== -->
+    <div id="step-upload" class="step-container active">
+        <div class="glass-panel step-panel">
+            <div style="text-align: center; margin-bottom: 1.75rem;">
+                <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.5rem;">
+                    Upload atau Potret Struk Pembayaran
+                </h2>
+                <p style="font-size: 0.95rem; color: var(--text-muted); max-width: 500px; margin: 0 auto;">
+                    Pilih gambar struk kasir dari perangkatmu atau ambil foto langsung melalui kamera ponsel.
+                </p>
+            </div>
+
+            <!-- Upload Dropzone -->
+            <div id="upload-dropzone" class="upload-box">
+                <div id="upload-placeholder">
+                    <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--text-muted); margin: 0 auto 1rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <div style="font-size: 1.05rem; font-weight: 600; margin-bottom: 0.35rem;">
+                        Tarik &amp; letakkan foto struk di sini
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+                        Mendukung JPG, PNG, atau WEBP hingga 5 MB
+                    </p>
+
+                    <div class="upload-actions-wrapper" style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <!-- Tombol Buka Kamera (Mobile Native Camera Support) -->
+                        <label for="receipt-camera-input" class="btn btn-secondary btn-sm" style="cursor: pointer;">
+                            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            <span>Ambil Foto Kamera</span>
+                        </label>
+                        <input type="file" id="receipt-camera-input" accept="image/*" capture="environment" style="display: none;">
+
+                        <!-- Tombol Pilih Galeri / File -->
+                        <label for="receipt-file-input" class="btn btn-secondary btn-sm" style="cursor: pointer;">
+                            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <span>Pilih dari Galeri</span>
+                        </label>
+                        <input type="file" id="receipt-file-input" accept="image/jpeg,image/png,image/webp" style="display: none;">
+                    </div>
+                </div>
+
+                <!-- Preview Area -->
+                <div id="upload-preview" style="display: none;">
+                    <img id="preview-image" class="preview-image" src="" alt="Pratinjau Struk">
+                    <div style="margin-top: 1rem;">
+                        <button type="button" id="btn-change-photo" class="btn btn-ghost btn-sm">
+                            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            <span>Ganti Foto Struk</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tombol Aksi Step 1 -->
+            <div style="margin-top: 1.75rem; display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
+                <button type="button" id="btn-process-ocr" class="btn btn-primary btn-lg" style="width: 100%; max-width: 380px; justify-content: center;" disabled>
+                    <span id="ocr-btn-text" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                        <span>Baca Struk Pembayaran</span>
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         STEP 2: FORM VALIDASI & REVIEW HASIL OCR
+         ======================================================== -->
+    <div id="step-ocr-review" class="step-container">
+        <div class="glass-panel step-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                <div>
+                    <h2 style="font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em;">
+                        Periksa &amp; Validasi Hasil Pembacaan Struk
+                    </h2>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">
+                        Pastikan nama menu, kuantitas, harga, dan komponen tagihan sudah sesuai sebelum membagikannya.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Informasi Restoran & Tanggal -->
+            <div class="restaurant-meta-grid">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Nama Restoran / Tempat Makan</label>
+                    <input type="text" id="input-restaurant-name" class="form-control" placeholder="Contoh: Kopi Tuku, Warung Padang..." required>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Tanggal Transaksi (Opsional)</label>
+                    <input type="text" id="input-transaction-date" class="form-control" placeholder="DD/MM/YYYY">
+                </div>
+            </div>
+
+            <!-- Tabel Daftar Pesanan -->
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label class="form-label" style="margin-bottom: 0;">Daftar Menu Pesanan</label>
+                        <span class="table-scroll-hint" title="Geser tabel ke samping untuk melihat seluruh kolom">
+                            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                            </svg>
+                            <span>Geser tabel &harr;</span>
+                        </span>
+                    </div>
+                    <button type="button" id="btn-add-item" class="btn btn-secondary btn-sm">
+                        + Tambah Baris Menu
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table style="width: 100%; min-width: 580px; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--glass-border); text-align: left; color: var(--text-muted); font-size: 0.75rem;">
+                                <th style="padding: 0.45rem 0.5rem; min-width: 210px;">NAMA MENU</th>
+                                <th style="padding: 0.45rem 0.5rem; width: 75px; min-width: 70px; text-align: center;">QTY</th>
+                                <th style="padding: 0.45rem 0.5rem; width: 130px; min-width: 120px;">HARGA SATUAN</th>
+                                <th style="padding: 0.45rem 0.5rem; width: 120px; min-width: 110px; text-align: right;">SUBTOTAL</th>
+                                <th style="padding: 0.45rem 0.5rem; width: 44px; min-width: 44px; text-align: center;">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-table-body">
+                            <!-- Di-render oleh JavaScript -->
+                        </tbody>
+                        <tfoot>
+                            <tr style="border-top: 1px solid var(--glass-border); font-weight: 700; color: var(--text-main);">
+                                <td colspan="3" style="padding: 0.75rem 0.5rem; text-align: right;">Subtotal Menu:</td>
+                                <td id="text-subtotal-calc" style="padding: 0.75rem 0.4rem; text-align: right; color: var(--text-main); white-space: nowrap;">Rp0</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Komponen Tambahan (Pajak, Service, Diskon, Biaya Lain) -->
+            <div style="background: var(--accent-subtle); border: 1px solid var(--accent-border); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+                <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem;">Komponen Tagihan Transaksi</h4>
+                <div class="additional-fees-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Pajak (Tax / PB1 / PPN)</label>
+                        <div class="input-currency-wrapper">
+                            <span class="input-currency-prefix">Rp</span>
+                            <input type="number" id="input-tax" class="form-control with-prefix" placeholder="0" min="0">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Biaya Layanan (Service)</label>
+                        <div class="input-currency-wrapper">
+                            <span class="input-currency-prefix">Rp</span>
+                            <input type="number" id="input-service" class="form-control with-prefix" placeholder="0" min="0">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Diskon Transaksi (-)</label>
+                        <div class="input-currency-wrapper">
+                            <span class="input-currency-prefix">Rp</span>
+                            <input type="number" id="input-discount" class="form-control with-prefix" placeholder="0" min="0">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Biaya Tambahan Lainnya</label>
+                        <div class="input-currency-wrapper">
+                            <span class="input-currency-prefix">Rp</span>
+                            <input type="number" id="input-other-fees" class="form-control with-prefix" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grand Total & Discrepancy Alert -->
+                <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px dashed var(--accent-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">Perhitungan Komponen:</span>
+                        <strong id="text-calc-grand-total" style="font-size: 1.15rem; color: var(--text-main);">Rp0</strong>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <label class="form-label" style="margin-bottom: 0; white-space: nowrap;">Total Tagihan Struk:</label>
+                        <div class="input-currency-wrapper" style="width: 180px;">
+                            <span class="input-currency-prefix">Rp</span>
+                            <input type="number" id="input-grand-total" class="form-control with-prefix" style="font-weight: 700;" placeholder="0" min="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Peringatan Discrepancy Jika Berbeda dengan Struk -->
+            <div id="discrepancy-warning" class="alert alert-warning" style="display: none; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <div>
+                        <strong>Perbedaan Total Terdeteksi!</strong>
+                        <div style="font-size: 0.85rem;">Hasil penjumlahan komponen: <span id="discrepancy-amount"></span></div>
+                    </div>
+                </div>
+                <button type="button" id="btn-fix-total" class="btn btn-secondary btn-sm">
+                    Sesuaikan dengan Hasil Hitungan
+                </button>
+            </div>
+
+            <!-- Navigasi Bawah Step 2 -->
+            <div class="step-nav-bottom" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
+                <button type="button" id="btn-cancel-ocr-review" class="btn btn-secondary btn-lg" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    <span>Batalkan</span>
+                </button>
+                <button type="button" id="btn-proceed-to-split" class="btn btn-primary btn-lg">
+                    <span>Lanjutkan ke Pembagian Pesanan</span>
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         STEP 3: MENU PEMBAGIAN PESANAN PER ORANG
+         ======================================================== -->
+    <div id="step-split" class="step-container">
+        <div class="glass-panel step-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                <div>
+                    <h2 style="font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em;">
+                        Pembagian Pesanan Per Orang
+                    </h2>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">
+                        Tambahkan siapa saja yang ikut splitbill dan bagikan menu pesanan mereka.
+                    </p>
+                </div>
+                <button type="button" id="btn-add-participant" class="btn btn-primary btn-sm">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                    </svg>
+                    <span>+ Tambah Orang</span>
+                </button>
+            </div>
+
+            <!-- Status Alokasi Semua Menu -->
+            <div style="margin-bottom: 1.5rem; background: var(--accent-subtle); border: 1px solid var(--accent-border); border-radius: var(--radius-md); padding: 0.875rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">
+                        Status Alokasi Menu Struk:
+                    </div>
+                    <span id="allocation-global-badge" style="font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.55rem; border-radius: var(--radius-full); display: inline-flex; align-items: center; gap: 0.35rem; background: var(--status-warning-bg); color: var(--status-warning); border: 1px solid var(--status-warning-border);">
+                        Belum Selesai
+                    </span>
+                </div>
+                <div id="allocation-status-summary" style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+                    <!-- Di-render oleh JavaScript -->
+                </div>
+                <div id="allocation-helper-text" style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.35rem;">
+                    <!-- Di-render oleh JavaScript -->
+                </div>
+            </div>
+
+            <!-- Daftar Peserta -->
+            <div id="participants-list" class="participants-grid-layout" style="margin-bottom: 2rem;">
+                <!-- Di-render oleh JavaScript -->
+            </div>
+
+            <!-- Navigasi Bawah Step 3 -->
+            <div class="step-nav-bottom" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--glass-border); padding-top: 1.25rem;">
+                <button type="button" id="btn-back-to-ocr" class="btn btn-secondary btn-sm">
+                    &larr; Kembali Edit Menu Struk
+                </button>
+                <button type="button" id="btn-finish-to-review" class="btn btn-primary btn-lg" disabled title="Alokasikan seluruh menu ke peserta untuk melanjutkan">
+                    <span>Selesai &amp; Review Hasil</span>
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         MODAL KONFIRMASI BATALKAN PEMERIKSAAN STRUK
+         ======================================================== -->
+    <div id="cancel-ocr-modal" class="modal-overlay">
+        <div class="modal-container modal-dialog-compact">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size: 1.15rem; font-weight: 800;">Batalkan Pemeriksaan Struk?</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                        Semua data hasil pembacaan struk ini akan dihapus. Kuota Anda tidak akan berkurang.
+                    </p>
+                </div>
+                <button type="button" id="btn-close-cancel-modal-x" class="btn btn-ghost btn-icon-only">✕</button>
+            </div>
+
+            <div class="modal-body" style="padding: 1.25rem 1.5rem;">
+                <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">
+                    Apakah Anda yakin ingin membatalkan? Tampilan akan kembali ke halaman pemotretan struk dan kuota pemindaian Anda tetap utuh.
+                </p>
+            </div>
+
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" id="btn-dismiss-cancel-modal" class="btn btn-secondary btn-sm">Kembali</button>
+                <button type="button" id="btn-confirm-cancel-ocr" class="btn btn-primary btn-sm" style="background: #ef4444; border-color: #dc2626; color: #ffffff;">Ya, Batalkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         MODAL / DRAWER PEMBAGIAN PESANAN (DESKTOP: 2 KOLOM, MOBILE: VERTIKAL)
+         ======================================================== -->
+    <div id="participant-modal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modal-participant-title" style="font-size: 1.15rem; font-weight: 800;">Atur Pesanan Peserta</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">
+                        Pindahkan pesanan ke orang ini via Drag &amp; Drop atau tombol "+ Tambah".
+                    </p>
+                </div>
+                <button type="button" id="btn-close-modal-x" class="btn btn-ghost btn-icon-only">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Input Nama Peserta -->
+                <div class="form-group">
+                    <label class="form-label">Nama Orang / Peserta</label>
+                    <input type="text" id="modal-participant-name" class="form-control" placeholder="Contoh: Budi, Siti..." required>
+                </div>
+
+                <!-- 2-Drawer Container: Kiri Menu Struk, Kanan Pesanan Orang Ini -->
+                <div class="split-drawer-container">
+                    <!-- Kolom Kiri: Menu Struk -->
+                    <div class="drawer-column">
+                        <div class="drawer-header">
+                            <h4>📋 Daftar Pesanan Struk</h4>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Tersedia</span>
+                        </div>
+                        <div id="modal-receipt-items-list" class="drawer-body">
+                            <!-- Di-render oleh JS -->
+                        </div>
+                    </div>
+
+                    <!-- Kolom Kanan: Pesanan Orang Ini -->
+                    <div class="drawer-column">
+                        <div class="drawer-header">
+                            <h4>👤 Pesanan Orang Ini</h4>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Porsi</span>
+                        </div>
+                        <div id="modal-selected-items-list" class="drawer-body">
+                            <!-- Di-render oleh JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Summary Orang Ini -->
+                <div style="margin-top: 1rem; background: var(--accent-subtle); border: 1px solid var(--accent-border); border-radius: var(--radius-md); padding: 0.875rem;">
+                    <div class="modal-summary-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                        <div>Subtotal: <strong id="modal-subtotal-text" style="color:var(--text-main); display:block;">Rp0</strong></div>
+                        <div>Pajak (prop): <strong id="modal-tax-text" style="color:var(--text-main); display:block;">Rp0</strong></div>
+                        <div>Layanan: <strong id="modal-service-text" style="color:var(--text-main); display:block;">Rp0</strong></div>
+                        <div>Diskon: <strong id="modal-discount-text" style="color:var(--status-success); display:block;">-Rp0</strong></div>
+                    </div>
+                    <div style="border-top: 1px solid var(--accent-border); padding-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <span style="font-weight: 700; font-size: 0.95rem;">Total Tagihan Peserta:</span>
+                        <strong id="modal-total-text" style="font-size: 1.25rem; font-weight: 800; color: var(--text-main);">Rp0</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-modal" class="btn btn-secondary btn-sm">Batal</button>
+                <button type="button" id="btn-save-participant" class="btn btn-primary btn-sm">Simpan Peserta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         STEP 4: REVIEW DAN HASIL SPLITBILL
+         ======================================================== -->
+    <div id="step-final-review" class="step-container">
+        <div class="glass-panel step-panel">
+            <div style="border-bottom: 1px solid var(--glass-border); padding-bottom: 1.25rem; margin-bottom: 1.5rem;">
+                <h2 style="font-size: 1.45rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.35rem;">
+                    Review Hasil Pembagian Tagihan
+                </h2>
+                <p style="font-size: 0.9rem; color: var(--text-muted);">
+                    Periksa kembali rincian setiap orang sebelum menyimpan dan membagikan linknya.
+                </p>
+            </div>
+
+            <!-- Ringkasan Transaksi Utama -->
+            <div style="background: var(--card-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <span style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em;">Ringkasan Transaksi</span>
+                        <h3 id="review-resto-name" style="font-size: 1.25rem; font-weight: 800; margin-top: 0.2rem; color: var(--text-main);">Restoran</h3>
+                        <span id="review-pax-count" class="badge" style="font-size: 0.8rem; background: var(--accent-subtle); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px;">0 Orang</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">Total Tagihan Struk:</span>
+                        <div id="review-grand-total" style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); line-height: 1.2;">Rp0</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1.5rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px dashed var(--glass-border); font-size: 0.85rem; color: var(--text-muted); flex-wrap: wrap;">
+                    <div>Pajak: <strong id="review-tax" style="color:var(--text-main);">Rp0</strong></div>
+                    <div>Service: <strong id="review-service" style="color:var(--text-main);">Rp0</strong></div>
+                    <div>Diskon: <strong id="review-discount" style="color:var(--status-success);">Rp0</strong></div>
+                </div>
+            </div>
+
+            <!-- Responsive Grid Card Per Peserta -->
+            <h4 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem;">Rincian Pembayaran Per Orang:</h4>
+            <div id="review-participants-grid" class="participant-grid">
+                <!-- Di-render oleh JavaScript -->
+            </div>
+
+            <!-- Aksi Bawah Review -->
+            <div class="step-nav-bottom" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--glass-border); padding-top: 1.5rem; margin-top: 2rem;">
+                <button type="button" id="btn-back-to-split" class="btn btn-secondary btn-sm">
+                    &larr; Kembali Edit Peserta
+                </button>
+                <button type="button" id="btn-save-bill" class="btn btn-primary btn-lg" style="justify-content: center; display: inline-flex; align-items: center; gap: 0.5rem;">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                    </svg>
+                    <span>Simpan Hasil Splitbill</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         STEP 5: KONFIRMASI SUKSES & URL BERBAGI
+         ======================================================== -->
+    <div id="step-confirmation" class="step-container">
+        <div class="glass-panel step-panel" style="text-align: center;">
+            <div style="width: 56px; height: 56px; background: var(--status-success-bg); color: var(--status-success); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; border: 1px solid var(--status-success-border);">
+                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+
+            <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.5rem;">
+                Splitbill Berhasil Disimpan!
+            </h2>
+            <p style="font-size: 0.95rem; color: var(--text-muted); max-width: 520px; margin: 0 auto 1.75rem;">
+                Tagihan ini telah disimpan sementara di cache dan siap dibagikan kepada teman-temanmu.
+            </p>
+
+            <!-- Box URL Unik -->
+            <div style="max-width: 520px; margin: 0 auto 1.5rem; background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.75rem; display: flex; gap: 0.5rem; align-items: center; box-shadow: var(--glass-shadow);">
+                <input type="text" id="shared-bill-url" class="form-control" readonly style="background: transparent; border: none; font-family: monospace; font-size: 0.95rem; color: var(--text-main); min-width: 0;">
+                <button type="button" id="btn-copy-shared-url" class="btn btn-primary btn-sm" style="flex-shrink: 0;">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                    </svg>
+                    <span>Salin URL</span>
+                </button>
+            </div>
+
+            <!-- Informasi TTL 10 Menit & Countdown -->
+            <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: var(--status-warning-bg); border: 1px solid var(--status-warning-border); color: var(--status-warning); padding: 0.5rem 1rem; border-radius: var(--radius-full); font-size: 0.85rem; font-weight: 600; margin-bottom: 2rem; max-width: 100%;">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="flex-shrink: 0;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span style="line-height: 1.3;">Masa berlaku tagihan: <strong id="confirmation-countdown">10:00</strong> (Sisa waktu sebelum terhapus)</span>
+            </div>
+
+            <!-- Tombol Navigasi Lanjutan -->
+            <div class="confirmation-actions" style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+                <a id="btn-open-shared-bill" href="#" class="btn btn-primary btn-lg" target="_blank">
+                    <span>Buka Halaman Tagihan</span>
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                </a>
+                <a href="{% url 'splitbill:index' %}" class="btn btn-secondary btn-lg">
+                    Kembali ke Beranda
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'splitbill/js/splitbill.js' %}?v=4.3"></script>
+{% endblock %}
+

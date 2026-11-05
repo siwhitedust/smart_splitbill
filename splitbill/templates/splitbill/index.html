@@ -1,0 +1,112 @@
+{% extends 'splitbill/base.html' %}
+{% load static %}
+
+{% block title %}Smart Splitbill - Bagi Tagihan Mudah, Cepat & Adil{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <h1 class="hero-title">Bagi tagihan dengan mudah, cepat, dan adil.</h1>
+        <p class="hero-desc">
+            Foto struk pesanan restoranmu, biarkan AI membaca rincian pesanan secara otomatis,
+            bagi menu ke teman-temanmu secara adil, dan bagikan rinciannya via link langsung.
+        </p>
+        <div style="display: flex; justify-content: center; gap: 0.75rem;">
+            <a href="{% url 'splitbill:create' %}" class="btn btn-primary btn-lg">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span>Buat Splitbill Baru</span>
+            </a>
+        </div>
+    </section>
+
+    <!-- Riwayat Splitbill Sesi Aktif -->
+    <section style="margin-top: 2rem;">
+        <div class="section-title">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>Riwayat Splitbill Aktif</span>
+            </div>
+            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted);">
+                tersimpan selama 10 menit
+            </span>
+        </div>
+
+        {% if has_active_bills %}
+        <div class="history-grid">
+            {% for bill in active_bills %}
+            <a href="{% url 'splitbill:bill_detail' bill.token %}" class="glass-card history-card" id="bill-card-{{ bill.token }}">
+                <div class="history-card-header">
+                    <div>
+                        <div class="history-card-title">{{ bill.restaurant_name }}</div>
+                        <div class="history-card-date">{{ bill.created_at_str }}</div>
+                    </div>
+                    <span class="ttl-pill" title="Sisa waktu sebelum tagihan ini kedaluwarsa">
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span class="bill-countdown-text" data-seconds="{{ bill.remaining_seconds|default:0 }}" data-card-id="bill-card-{{ bill.token }}">{{ bill.remaining_seconds }}s</span>
+                    </span>
+                </div>
+
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0;">
+                    👥 {{ bill.participant_count }} Orang &bull; {{ bill.items|length }} Menu Pesanan
+                </div>
+
+                <div class="history-card-footer">
+                    <div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Total Tagihan:</span>
+                        <span class="history-card-total">{{ bill.grand_total_formatted }}</span>
+                    </div>
+                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.25rem;">
+                        Lihat Rincian &rarr;
+                    </span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            <div class="empty-state-title">Belum ada riwayat splitbill.</div>
+            <p style="font-size: 0.9rem; margin-bottom: 1.25rem;">
+                Kamu belum memiliki tagihan aktif yang tersimpan dalam sesi ini.
+            </p>
+            <a href="{% url 'splitbill:create' %}" class="btn btn-secondary btn-sm">
+                + Buat Tagihan Baru Sekarang
+            </a>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const countdownElements = document.querySelectorAll('.bill-countdown-text');
+        countdownElements.forEach((el) => {
+            const seconds = parseInt(el.getAttribute('data-seconds'), 10) || 0;
+            const cardId = el.getAttribute('data-card-id');
+            initLiveCountdown(el, seconds, () => {
+                if (cardId) {
+                    const card = document.getElementById(cardId);
+                    if (card) {
+                        card.style.opacity = '0.5';
+                        card.style.pointerEvents = 'none';
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
+

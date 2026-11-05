@@ -1,0 +1,23 @@
+# ==============================================================================
+# SMART SPLITBILL - DEPENDENCIES (Ready for Local, Vercel & Render)
+# ==============================================================================
+
+# Core Web Framework
+Django>=5.1.0,<5.2
+
+# Google GenAI SDK (Gemini 2.5 Flash API)
+google-genai>=1.0.0
+pydantic>=2.0.0
+
+# Image Processing & Environment
+Pillow>=10.0.0
+python-dotenv>=1.0.0
+
+# Optional Microservice API (FastAPI)
+fastapi>=0.115.0
+uvicorn>=0.30.0
+python-multipart>=0.0.12
+
+# Production WSGI Server & Static Files (Render / Cloud Deployment)
+gunicorn>=22.0.0
+whitenoise>=6.6.0

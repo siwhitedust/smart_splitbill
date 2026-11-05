@@ -1,0 +1,190 @@
+{% extends 'splitbill/base.html' %}
+{% load static %}
+
+{% block title %}Rincian Tagihan - {{ bill.restaurant_name }} - Smart Splitbill{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 960px;">
+    <!-- Header Rincian Tagihan -->
+    <div class="glass-panel step-panel" style="margin-bottom: 2rem;">
+        <div class="bill-detail-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem;">
+            <div>
+                <span class="badge" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; background: var(--accent-subtle); color: var(--text-muted); padding: 0.25rem 0.5rem; border-radius: 4px; letter-spacing: 0.05em;">
+                    Rincian Pembagian Tagihan
+                </span>
+                <h1 style="font-size: 1.85rem; font-weight: 800; letter-spacing: -0.02em; margin-top: 0.35rem; color: var(--text-main);">
+                    {{ bill.restaurant_name }}
+                </h1>
+                <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    🗓 Tanggal: {{ bill.transaction_date|default:bill.created_at_str }} &bull; 👥 {{ bill.participant_count }} Orang Peserta
+                </div>
+            </div>
+
+            <div class="bill-detail-header-right" style="text-align: right;">
+                <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">Total Keseluruhan Transaksi:</span>
+                <div style="font-size: 2.25rem; font-weight: 800; color: var(--text-main); line-height: 1.1;">
+                    {{ bill.grand_total_formatted }}
+                </div>
+                <div style="margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; background: var(--status-warning-bg); color: var(--status-warning); border: 1px solid var(--status-warning-border); padding: 0.2rem 0.6rem; border-radius: var(--radius-full); font-weight: 600;">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Sisa waktu aktif: <strong id="bill-detail-countdown" data-seconds="{{ bill.remaining_seconds|default:0 }}">{{ bill.remaining_seconds }}s</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rincian Komponen Transaksi -->
+        <div style="display: flex; gap: 1.5rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px dashed var(--glass-border); font-size: 0.9rem; color: var(--text-muted); flex-wrap: wrap;">
+            <div>Subtotal Menu: <strong style="color:var(--text-main);">{{ bill.subtotal_formatted }}</strong></div>
+            {% if bill.tax != '0' %}
+            <div>Pajak: <strong style="color:var(--text-main);">{{ bill.tax_formatted }}</strong></div>
+            {% endif %}
+            {% if bill.service != '0' %}
+            <div>Service: <strong style="color:var(--text-main);">{{ bill.service_formatted }}</strong></div>
+            {% endif %}
+            {% if bill.discount != '0' %}
+            <div>Diskon: <strong style="color:var(--status-success);">-{{ bill.discount_formatted }}</strong></div>
+            {% endif %}
+            {% if bill.other_fees != '0' %}
+            <div>Biaya Lain: <strong style="color:var(--text-main);">{{ bill.other_fees_formatted }}</strong></div>
+            {% endif %}
+        </div>
+
+        <!-- Action Bar: Tombol Salin Rincian Teks WhatsApp -->
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="font-size: 0.85rem; color: var(--text-muted);">
+                Bagikan hasil tagihan ini langsung ke grup chat:
+            </div>
+            <div class="bill-detail-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" id="btn-copy-wa" class="btn btn-primary btn-sm">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                    </svg>
+                    <span>Salin Rincian untuk WhatsApp</span>
+                </button>
+                <button type="button" id="btn-copy-link" class="btn btn-secondary btn-sm">
+                    <span>Salin Link URL</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rincian Pembayaran Per Orang -->
+    <div style="margin-bottom: 2rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 1rem;">
+            Rincian Pembayaran Setiap Orang ({{ bill.participant_count }} Peserta)
+        </h2>
+
+        <div class="participant-grid">
+            {% for p in bill.participants %}
+            <div class="participant-card">
+                <div>
+                    <div class="participant-name">{{ p.name }}</div>
+                    
+                    <ul class="participant-items-list">
+                        {% for item in p.items %}
+                        <li>
+                            <span>{{ item.qty }}x {{ item.name }}</span>
+                            <span style="font-weight: 500;">{{ item.subtotal_formatted }}</span>
+                        </li>
+                        {% empty %}
+                        <li style="color: var(--text-light); font-style: italic;">
+                            <span>Tidak ada menu khusus</span>
+                            <span>-</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div>
+                    <div class="participant-breakdown">
+                        <div class="participant-breakdown-row">
+                            <span>Subtotal:</span>
+                            <span>{{ p.subtotal_formatted }}</span>
+                        </div>
+                        {% if p.tax != '0' %}
+                        <div class="participant-breakdown-row">
+                            <span>Pajak (proporsional):</span>
+                            <span>{{ p.tax_formatted }}</span>
+                        </div>
+                        {% endif %}
+                        {% if p.service != '0' %}
+                        <div class="participant-breakdown-row">
+                            <span>Service Charge:</span>
+                            <span>{{ p.service_formatted }}</span>
+                        </div>
+                        {% endif %}
+                        {% if p.discount != '0' %}
+                        <div class="participant-breakdown-row">
+                            <span>Diskon:</span>
+                            <span style="color: var(--status-success);">-{{ p.discount_formatted }}</span>
+                        </div>
+                        {% endif %}
+                        {% if p.other_fees != '0' %}
+                        <div class="participant-breakdown-row">
+                            <span>Biaya Lain:</span>
+                            <span>{{ p.other_fees_formatted }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="participant-total-highlight">
+                        <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">Total Bayar</span>
+                        <span>{{ p.total_formatted }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Tombol Buat Splitbill Baru -->
+    <div style="text-align: center; margin-top: 3rem;">
+        <a href="{% url 'splitbill:create' %}" class="btn btn-secondary btn-lg">
+            + Hitung Splitbill Lainnya
+        </a>
+    </div>
+</div>
+
+<!-- Raw WhatsApp text for easy copy -->
+<textarea id="raw-wa-text" style="display: none;">{{ share_text }}</textarea>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Countdown TTL dari data attribute
+        const countdownEl = document.getElementById('bill-detail-countdown');
+        if (countdownEl) {
+            const initialSeconds = parseInt(countdownEl.getAttribute('data-seconds'), 10) || 0;
+            initLiveCountdown(countdownEl, initialSeconds, () => {
+                showToast("Tagihan ini telah kedaluwarsa dan tidak lagi dapat diakses.", "warning");
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            });
+        }
+
+        // Copy WhatsApp Text
+        const btnCopyWa = document.getElementById('btn-copy-wa');
+        if (btnCopyWa) {
+            btnCopyWa.addEventListener('click', () => {
+                const textEl = document.getElementById('raw-wa-text');
+                if (textEl) {
+                    copyToClipboard(textEl.value, "Rincian teks WhatsApp berhasil disalin!");
+                }
+            });
+        }
+
+        // Copy Direct Link
+        const btnCopyLink = document.getElementById('btn-copy-link');
+        if (btnCopyLink) {
+            btnCopyLink.addEventListener('click', () => {
+                copyToClipboard(window.location.href, "Link tagihan berhasil disalin!");
+            });
+        }
+    });
+</script>
+{% endblock %}
+
