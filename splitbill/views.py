@@ -9,6 +9,7 @@ from django.shortcuts import render, redirect
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.contrib.auth import authenticate, login, logout
 
 from splitbill.services import (
     bill_cache_service,
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 @require_GET
+@ensure_csrf_cookie
 def index(request):
     """
     Halaman Utama / Dashboard.
@@ -30,13 +32,19 @@ def index(request):
     serta sisa kuota OCR harian.
     """
     active_bills = bill_cache_service.get_user_active_bills(request.session)
-    is_allowed, used_count, remaining_quota = rate_limiter.get_status(request)
+    is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
+    if is_admin:
+        is_allowed = True
+        remaining_quota = 'Unlimited'
+    else:
+        is_allowed, used_count, remaining_quota = rate_limiter.get_status(request)
 
     context = {
         'active_bills': active_bills,
         'has_active_bills': len(active_bills) > 0,
         'remaining_quota': remaining_quota,
         'daily_limit': rate_limiter.daily_limit,
+        'is_admin': is_admin,
     }
     return render(request, 'splitbill/index.html', context)
 
@@ -48,11 +56,18 @@ def create_bill(request):
     Halaman Pembuatan Splitbill Baru.
     Menyediakan interface wizard: Upload Struk -> Form OCR -> Pembagian Peserta -> Review -> Simpan.
     """
-    is_allowed, used_count, remaining_quota = rate_limiter.get_status(request)
+    is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
+    if is_admin:
+        is_allowed = True
+        remaining_quota = 'Unlimited'
+    else:
+        is_allowed, used_count, remaining_quota = rate_limiter.get_status(request)
+
     context = {
         'remaining_quota': remaining_quota,
         'daily_limit': rate_limiter.daily_limit,
         'is_ocr_allowed': is_allowed,
+        'is_admin': is_admin,
     }
     return render(request, 'splitbill/create.html', context)
 
@@ -61,20 +76,24 @@ def create_bill(request):
 def process_ocr_api(request):
     """
     API Pemrosesan OCR Struk dengan Gemini Flash API.
-    1. Validasi kuota harian personal (5x/hari).
+    1. Validasi kuota harian personal (5x/hari), dilewati jika akun admin/pengembang.
     2. Validasi file gambar struk.
     3. Ekstraksi informasi via Gemini Flash API (dengan Structured Output).
     4. Jika kuota habis (baik kuota personal maupun kuota AI model),
        mengembalikan pesan 'kuota 1 hari sudah habis see you besok'.
     """
-    # 1. Periksa Kuota OCR Personal (Rate Limiter IP & Session)
-    is_allowed, current_count, remaining = rate_limiter.get_status(request)
-    if not is_allowed:
-        return JsonResponse({
-            'status': 'error',
-            'message': 'kuota 1 hari sudah habis see you besok',
-            'remaining_quota': 0,
-        }, status=429)
+    # 1. Periksa Kuota OCR Personal (Rate Limiter IP)
+    is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
+    if not is_admin:
+        is_allowed, current_count, remaining = rate_limiter.get_status(request)
+        if not is_allowed:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'kuota 1 hari sudah habis see you besok',
+                'remaining_quota': 0,
+            }, status=429)
+    else:
+        remaining = 'Unlimited'
 
     # 2. Periksa Keberadaan & Validasi File
     if 'receipt_image' not in request.FILES:
@@ -128,22 +147,6 @@ def process_ocr_api(request):
 
 
 @require_POST
-def reset_quota_api(request):
-    """
-    API Reset Kuota Harian (Khusus fase pengembangan / development).
-    Menghapus cache rate limiter identitas pengguna saat ini.
-    """
-    rate_limiter.reset_quota(request)
-    _, _, remaining = rate_limiter.get_status(request)
-    return JsonResponse({
-        'status': 'success',
-        'message': f'Kuota berhasil direset ke {remaining}/{rate_limiter.daily_limit}!',
-        'remaining_quota': remaining,
-        'daily_limit': rate_limiter.daily_limit,
-    })
-
-
-@require_POST
 def save_bill_api(request):
     """
     API Penyimpanan Tagihan ke Cache dengan TTL 600 detik (10 menit).
@@ -158,14 +161,16 @@ def save_bill_api(request):
             'message': 'Format data JSON tidak valid.'
         }, status=400)
 
-    # Periksa kuota sebelum simpan
-    is_allowed, _, remaining = rate_limiter.get_status(request)
-    if not is_allowed:
-        return JsonResponse({
-            'status': 'error',
-            'message': 'kuota 1 hari sudah habis see you besok',
-            'remaining_quota': 0,
-        }, status=429)
+    # Periksa kuota sebelum simpan (admin memiliki kuota Unlimited)
+    is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
+    if not is_admin:
+        is_allowed, _, remaining = rate_limiter.get_status(request)
+        if not is_allowed:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'kuota 1 hari sudah habis see you besok',
+                'remaining_quota': 0,
+            }, status=429)
 
     # Validasi struktur formulir
     is_valid_form, form_errors = validate_bill_submission(body)
@@ -207,7 +212,10 @@ def save_bill_api(request):
     bill_cache_service.attach_bill_to_session(request.session, token)
 
     # Konsumsi 1 kuota pemrosesan saat tagihan final berhasil disimpan
-    allowed, new_remaining, _ = rate_limiter.consume_quota(request)
+    if is_admin:
+        new_remaining = 'Unlimited'
+    else:
+        allowed, new_remaining, _ = rate_limiter.consume_quota(request)
 
     bill_url = f"/tagihan/{token}"
     return JsonResponse({
@@ -276,4 +284,80 @@ def bill_status_api(request, token: str):
         'remaining_seconds': bill.get('remaining_seconds', 0),
         'restaurant_name': bill.get('restaurant_name'),
         'grand_total_formatted': bill.get('grand_total_formatted'),
+    })
+
+
+@require_POST
+def login_api(request):
+    """
+    API Login untuk Pengembang / Admin.
+    Menerima username dan password via JSON atau form-data.
+    """
+    try:
+        if request.content_type == 'application/json':
+            body = json.loads(request.body.decode('utf-8'))
+            username = body.get('username', '').strip()
+            password = body.get('password', '').strip()
+        else:
+            username = request.POST.get('username', '').strip()
+            password = request.POST.get('password', '').strip()
+    except Exception:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Format data login tidak valid.'
+        }, status=400)
+
+    if not username or not password:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Username dan password wajib diisi.'
+        }, status=400)
+
+    user = authenticate(request, username=username, password=password)
+    if user is not None:
+        login(request, user)
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Login berhasil! Selamat datang Admin {user.username}.',
+            'user': {
+                'username': user.username,
+                'is_staff': user.is_staff,
+            }
+        })
+    else:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Username atau password admin salah.'
+        }, status=401)
+
+
+@require_POST
+def logout_api(request):
+    """
+    API Logout Admin / Pengembang.
+    """
+    logout(request)
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Anda telah keluar dari mode admin.'
+    })
+
+
+@require_POST
+def admin_reset_quota_api(request):
+    """
+    API Reset Kuota Khusus Admin / Pengembang.
+    Hanya dapat dieksekusi jika pengguna telah terautentikasi sebagai admin.
+    """
+    if not (request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')):
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Akses ditolak: Hanya admin yang diizinkan mereset kuota.'
+        }, status=403)
+
+    rate_limiter.reset_quota(request)
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Kuota berhasil direset ke {rate_limiter.daily_limit}!',
+        'remaining_quota': rate_limiter.daily_limit,
     })

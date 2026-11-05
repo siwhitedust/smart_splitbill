@@ -62,21 +62,44 @@ class RateLimiterTest(SimpleTestCase):
         self.assertTrue(allowed2)
         self.assertEqual(rem2, 4)
 
-    def test_reset_quota_restores_limit(self):
-        """Uji fungsi reset_quota mengembalikan kuota penuh."""
-        req = self._create_mock_request(ip='10.0.0.5')
+    def test_clearing_cookies_or_session_does_not_reset_quota(self):
+        """Menghapus cookie / ganti session (incognito) tidak mereset kuota karena terkunci strictly pada IP."""
+        req1 = self._create_mock_request(ip='192.168.1.10')
+        for _ in range(5):
+            self.limiter.consume_quota(req1)
+
+        # req1 kuota habis
+        allowed1, _, _ = self.limiter.consume_quota(req1)
+        self.assertFalse(allowed1)
+
+        # Simulasi pengguna buka Incognito atau hapus cookie (session baru, IP sama)
+        req2 = self._create_mock_request(ip='192.168.1.10')
+        req2.session.flush()
+        req2.session.save()
+        self.assertNotEqual(req1.session.session_key, req2.session.session_key)
+
+        # Harus tetap ditolak (0 kuota)
+        allowed2, rem2, _ = self.limiter.consume_quota(req2)
+        self.assertFalse(allowed2)
+        self.assertEqual(rem2, 0)
+
+    def test_x_forwarded_for_spoofing_is_ignored(self):
+        """Header HTTP_X_FORWARDED_FOR diabaikan, identitas tetap membaca REMOTE_ADDR asli."""
+        req = self._create_mock_request(ip='192.168.1.50')
         for _ in range(5):
             self.limiter.consume_quota(req)
 
-        # Sudah habis
-        allowed, rem, _ = self.limiter.consume_quota(req)
+        # Coba spoof header X-Forwarded-For dengan IP acak lain
+        req_spoof = self.factory.post(
+            '/api/ocr/',
+            REMOTE_ADDR='192.168.1.50',
+            HTTP_X_FORWARDED_FOR='8.8.8.8, 1.1.1.1'
+        )
+        middleware = SessionMiddleware(lambda r: None)
+        middleware.process_request(req_spoof)
+        req_spoof.session.save()
+
+        allowed, rem, _ = self.limiter.consume_quota(req_spoof)
         self.assertFalse(allowed)
-
-        # Reset kuota
-        self.limiter.reset_quota(req)
-
-        # Kuota harus kembali tersedia
-        is_allowed, count, remaining = self.limiter.get_status(req)
-        self.assertTrue(is_allowed)
-        self.assertEqual(remaining, 5)
+        self.assertEqual(rem, 0)
 

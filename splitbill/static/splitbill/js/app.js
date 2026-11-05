@@ -168,45 +168,139 @@ function initThemeToggle() {
 document.addEventListener('DOMContentLoaded', initThemeToggle);
 
 // ==========================================
-// Reset Kuota (Khusus Masa Pengembangan / Testing)
+// Login / Logout Modal Interactivity
 // ==========================================
-function initResetQuota() {
-    const btnReset = document.getElementById('btn-reset-quota');
-    if (!btnReset) return;
+function initLoginModal() {
+    const loginModal = document.getElementById('login-modal');
+    const btnOpenLogin = document.getElementById('btn-open-login');
+    const btnCloseLoginX = document.getElementById('btn-close-login-modal-x');
+    const btnContinue = document.getElementById('btn-continue-without-login');
+    const formLogin = document.getElementById('form-login');
+    const loginAlertError = document.getElementById('login-alert-error');
+    const btnSubmitLogin = document.getElementById('btn-submit-login');
+    const btnLogout = document.getElementById('btn-logout');
+    const btnAdminResetQuota = document.getElementById('btn-admin-reset-quota');
 
-    btnReset.addEventListener('click', async () => {
-        btnReset.disabled = true;
-        try {
-            const resp = await fetch('/api/reset-kuota/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json',
-                },
-            });
-            const res = await resp.json();
-            if (resp.ok && res.status === 'success') {
-                showToast(res.message || 'Kuota berhasil direset!', 'success');
-                // Perbarui tampilan badge kuota di navbar
-                const quotaBadgeEl = document.querySelector('.quota-badge strong');
-                const quotaIndicator = document.querySelector('.quota-indicator');
-                if (quotaBadgeEl) {
-                    quotaBadgeEl.textContent = `${res.remaining_quota}/${res.daily_limit || 5}`;
+    const openModal = () => {
+        if (!loginModal) return;
+        if (loginAlertError) loginAlertError.style.display = 'none';
+        loginModal.classList.add('active');
+        const usernameInput = document.getElementById('login-username');
+        if (usernameInput) setTimeout(() => usernameInput.focus(), 100);
+    };
+
+    const closeModal = () => {
+        if (!loginModal) return;
+        loginModal.classList.remove('active');
+    };
+
+    if (btnOpenLogin) btnOpenLogin.addEventListener('click', openModal);
+    if (btnCloseLoginX) btnCloseLoginX.addEventListener('click', closeModal);
+    if (btnContinue) btnContinue.addEventListener('click', closeModal);
+    if (loginModal) {
+        loginModal.addEventListener('click', (e) => {
+            if (e.target === loginModal) closeModal();
+        });
+    }
+
+    if (formLogin) {
+        formLogin.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+
+            if (!username || !password) {
+                if (loginAlertError) {
+                    loginAlertError.textContent = 'Username dan password wajib diisi.';
+                    loginAlertError.style.display = 'block';
                 }
-                if (quotaIndicator) {
-                    quotaIndicator.className = 'quota-indicator';
-                }
-            } else {
-                showToast('Gagal mereset kuota.', 'danger');
+                return;
             }
-        } catch (err) {
-            showToast('Koneksi gagal saat mereset kuota.', 'danger');
-        } finally {
-            btnReset.disabled = false;
-        }
-    });
+
+            if (btnSubmitLogin) {
+                btnSubmitLogin.disabled = true;
+                btnSubmitLogin.innerHTML = '<span>Memverifikasi...</span>';
+            }
+
+            try {
+                const resp = await fetch('/api/login/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+                const res = await resp.json();
+                if (resp.ok && res.status === 'success') {
+                    showToast(res.message || 'Login berhasil!', 'success');
+                    closeModal();
+                    setTimeout(() => window.location.reload(), 400);
+                } else {
+                    if (loginAlertError) {
+                        loginAlertError.textContent = res.message || 'Username atau password salah.';
+                        loginAlertError.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                if (loginAlertError) {
+                    loginAlertError.textContent = 'Terjadi kesalahan koneksi saat login.';
+                    loginAlertError.style.display = 'block';
+                }
+            } finally {
+                if (btnSubmitLogin) {
+                    btnSubmitLogin.disabled = false;
+                    btnSubmitLogin.innerHTML = '<span>Masuk sebagai Admin</span>';
+                }
+            }
+        });
+    }
+
+    if (btnLogout) {
+        btnLogout.addEventListener('click', async () => {
+            try {
+                const resp = await fetch('/api/logout/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                });
+                if (resp.ok) {
+                    showToast('Berhasil logout dari mode admin.', 'info');
+                    setTimeout(() => window.location.reload(), 400);
+                }
+            } catch (err) {
+                showToast('Gagal logout.', 'danger');
+            }
+        });
+    }
+
+    if (btnAdminResetQuota) {
+        btnAdminResetQuota.addEventListener('click', async () => {
+            btnAdminResetQuota.disabled = true;
+            try {
+                const resp = await fetch('/api/admin/reset-kuota/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                });
+                const res = await resp.json();
+                if (resp.ok && res.status === 'success') {
+                    showToast(res.message || 'Kuota berhasil direset oleh admin!', 'success');
+                } else {
+                    showToast(res.message || 'Gagal mereset kuota.', 'danger');
+                }
+            } catch (err) {
+                showToast('Koneksi gagal saat mereset kuota.', 'danger');
+            } finally {
+                btnAdminResetQuota.disabled = false;
+            }
+        });
+    }
 }
 
-document.addEventListener('DOMContentLoaded', initResetQuota);
+document.addEventListener('DOMContentLoaded', initLoginModal);
+
 
 

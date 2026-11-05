@@ -1165,13 +1165,42 @@ main {
     gap: 0.75rem;
 }
 
+.btn-nav-login {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    gap: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-nav-logout {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.825rem;
+    color: var(--text-muted);
+    gap: 0.3rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-nav-logout:hover {
+    color: #f87171;
+}
+
+.admin-badge {
+    background: rgba(16, 185, 129, 0.12) !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+    color: #10b981 !important;
+}
+
 .btn-nav-reset {
-    padding: 0.3rem 0.6rem;
-    font-size: 0.75rem;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.775rem;
     border-color: var(--status-warning-border);
     color: var(--status-warning);
     background: var(--status-warning-bg);
     gap: 0.25rem;
+    display: inline-flex;
+    align-items: center;
 }
 
 .step-panel {
@@ -1367,20 +1396,21 @@ main {
         display: none;
     }
 
-    .btn-nav-reset {
-        padding: 0.35rem;
-    }
-
-    .btn-nav-reset .btn-text {
-        display: none;
-    }
-
     .btn-nav-create {
         padding: 0.35rem 0.6rem;
     }
 
-    .btn-nav-create .btn-text {
+    .btn-nav-create .btn-text,
+    .btn-nav-login .btn-text,
+    .btn-nav-logout .btn-text,
+    .btn-nav-reset .btn-text {
         display: none;
+    }
+
+    .btn-nav-login,
+    .btn-nav-logout,
+    .btn-nav-reset {
+        padding: 0.35rem 0.5rem;
     }
 
     .theme-toggle-btn {

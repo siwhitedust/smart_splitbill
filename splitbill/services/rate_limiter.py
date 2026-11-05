@@ -16,7 +16,9 @@ DAILY_LIMIT = getattr(settings, 'RATE_LIMIT_DAILY_MAX', 5)
 
 class RateLimiterService:
     """
-    Mengelola batasan pemrosesan OCR harian berbasis IP dan Session.
+    Mengelola batasan pemrosesan OCR harian strictly berbasis Alamat IP jaringan.
+    Maksimal 5x per hari per IP address.
+    Menutup celah incognito, hapus cookie, ganti profil browser, atau ganti session.
     """
 
     def __init__(self, daily_limit: int = DAILY_LIMIT):
@@ -24,16 +26,12 @@ class RateLimiterService:
 
     def _get_identifier(self, request) -> str:
         """
-        Menghasilkan hash unik dari kombinasi IP address dan Session key.
+        Menghasilkan hash unik strictly berbasis Alamat IP klien (REMOTE_ADDR).
+        Menjamin bahwa penghapusan cookie atau pembukaan tab incognito dari IP yang sama
+        tidak akan mereset kuota harian.
         """
         ip = get_client_ip(request)
-        # Pastikan session ada atau dibuatkan session key
-        if not request.session.session_key:
-            request.session.save()
-        session_key = request.session.session_key or 'nosession'
-
-        raw = f"{ip}:{session_key}"
-        return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:24]
+        return hashlib.sha256(ip.encode('utf-8')).hexdigest()[:24]
 
     def _get_cache_key_and_ttl(self, request) -> Tuple[str, int]:
         """

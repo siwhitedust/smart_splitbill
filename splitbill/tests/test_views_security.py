@@ -10,16 +10,20 @@ import io
 import json
 from unittest.mock import patch
 from PIL import Image
-from django.test import SimpleTestCase, Client
+from django.test import TestCase, Client
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
 from splitbill.services.cache_service import bill_cache_service
 
 
-class ViewsAndSecurityTest(SimpleTestCase):
+class ViewsAndSecurityTest(TestCase):
     def setUp(self):
         cache.clear()
         self.client = Client()
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        if not User.objects.filter(username='admin').exists():
+            User.objects.create_superuser('admin', 'admin@splitbill.local', 'superadmin123')
 
     def tearDown(self):
         cache.clear()
@@ -135,13 +139,10 @@ class ViewsAndSecurityTest(SimpleTestCase):
         self.assertEqual(data['status'], 'error')
         self.assertEqual(data['message'], 'kuota 1 hari sudah habis see you besok')
 
-    def test_reset_quota_api(self):
-        """Endpoint /api/reset-kuota/ mereset kuota OCR pengguna dan mengembalikan status 200."""
+    def test_reset_quota_endpoint_is_removed(self):
+        """Endpoint /api/reset-kuota/ telah dihapus dan mengembalikan 404 Not Found."""
         resp = self.client.post('/api/reset-kuota/')
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['remaining_quota'], 5)
+        self.assertEqual(resp.status_code, 404)
 
     @patch('splitbill.services.ocr_service.scan_receipt_gemini')
     def test_ocr_api_when_ai_quota_exhausted(self, mock_scan):
@@ -190,7 +191,7 @@ class ViewsAndSecurityTest(SimpleTestCase):
             }
         }
         # Reset dulu kuota
-        self.client.post('/api/reset-kuota/')
+        cache.clear()
 
         img = Image.new('RGB', (100, 100), color=(255, 255, 255))
         buf = io.BytesIO()
@@ -209,7 +210,7 @@ class ViewsAndSecurityTest(SimpleTestCase):
 
     def test_save_bill_api_consumes_quota(self):
         """Menyimpan splitbill resmi (/api/simpan/) memotong 1 kuota harian."""
-        self.client.post('/api/reset-kuota/')
+        cache.clear()
         payload = {
             'bill_info': {
                 'restaurant_name': 'Soto Betawi',
@@ -254,6 +255,52 @@ class ViewsAndSecurityTest(SimpleTestCase):
         resp = self.client.post('/api/simpan/', data=json.dumps(payload), content_type='application/json')
         self.assertEqual(resp.status_code, 429)
         self.assertEqual(resp.json()['message'], 'kuota 1 hari sudah habis see you besok')
+
+    def test_admin_login_success_and_logout(self):
+        """Uji login admin dengan akun admin:superadmin123 dan logout."""
+        # 1. Login berhasil
+        resp = self.client.post(
+            '/api/login/',
+            data=json.dumps({'username': 'admin', 'password': 'superadmin123'}),
+            content_type='application/json'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['user']['username'], 'admin')
+
+        # 2. Halaman dashboard & create menampilkan status Unlimited untuk admin
+        resp_index = self.client.get('/')
+        self.assertEqual(resp_index.status_code, 200)
+        self.assertEqual(resp_index.context['remaining_quota'], 'Unlimited')
+        self.assertTrue(resp_index.context['is_admin'])
+
+        # 3. Admin dapat mereset kuota via /api/admin/reset-kuota/
+        resp_reset = self.client.post('/api/admin/reset-kuota/')
+        self.assertEqual(resp_reset.status_code, 200)
+
+        # 4. Logout admin
+        resp_logout = self.client.post('/api/logout/')
+        self.assertEqual(resp_logout.status_code, 200)
+
+        # 5. Setelah logout, kuota kembali ke angka rate limiter biasa
+        resp_index_after = self.client.get('/')
+        self.assertNotEqual(resp_index_after.context['remaining_quota'], 'Unlimited')
+
+    def test_admin_login_wrong_password_fails(self):
+        """Login dengan password salah ditolak dengan HTTP 401."""
+        resp = self.client.post(
+            '/api/login/',
+            data=json.dumps({'username': 'admin', 'password': 'wrongpassword'}),
+            content_type='application/json'
+        )
+        self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp.json()['status'], 'error')
+
+    def test_non_admin_cannot_reset_quota(self):
+        """User biasa (tanpa login) ditolak 403 saat mengakses /api/admin/reset-kuota/."""
+        resp = self.client.post('/api/admin/reset-kuota/')
+        self.assertEqual(resp.status_code, 403)
 
 
 

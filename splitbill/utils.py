@@ -108,11 +108,8 @@ def parse_decimal(value, default: str = '0') -> Decimal:
 
 def get_client_ip(request) -> str:
     """
-    Mendapatkan alamat IP asli klien dari request headers.
+    Mendapatkan alamat IP asli klien dari socket jaringan (REMOTE_ADDR).
+    Mengabaikan header HTTP_X_FORWARDED_FOR sembarangan guna mencegah celah manipulasi/spoofing IP.
     """
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0].strip()
-    else:
-        ip = request.META.get('REMOTE_ADDR', '127.0.0.1')
-    return ip
+    remote_addr = request.META.get('REMOTE_ADDR', '127.0.0.1')
+    return remote_addr.strip() if remote_addr else '127.0.0.1'

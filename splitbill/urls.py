@@ -13,8 +13,10 @@ urlpatterns = [
     path('tagihan/<str:token>', views.bill_detail, name='bill_detail'),
     path('tagihan/<str:token>/', views.bill_detail, name='bill_detail_slash'),
     path('api/ocr/', views.process_ocr_api, name='api_ocr'),
-    path('api/reset-kuota/', views.reset_quota_api, name='api_reset_quota'),
     path('api/simpan/', views.save_bill_api, name='api_simpan'),
     path('api/status/<str:token>/', views.bill_status_api, name='api_status'),
+    path('api/login/', views.login_api, name='api_login'),
+    path('api/logout/', views.logout_api, name='api_logout'),
+    path('api/admin/reset-kuota/', views.admin_reset_quota_api, name='api_admin_reset_quota'),
 ]
 

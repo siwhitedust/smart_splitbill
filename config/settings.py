@@ -30,6 +30,8 @@ else:
 
 # Application definition
 INSTALLED_APPS = [
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
@@ -41,6 +43,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -56,6 +59,7 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
         },
@@ -65,11 +69,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
-# Database permanen: Sesuai spesifikasi, TIDAK MENGGUNAKAN DATABASE RELASIONAL.
-# Seluruh data disimpan sementara di Django Cache.
-DATABASES = {}
+# Database: SQLite untuk menyimpan akun admin pengembang.
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
 
-# Session Management: Menggunakan Cache backend agar tidak butuh database SQL
+# Session Management: Menggunakan Cache backend
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 SESSION_COOKIE_AGE = 86400  # 1 hari (detik)
