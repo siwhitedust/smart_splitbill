@@ -97,12 +97,27 @@ class OCRReceiptService:
             })
 
         logger.info(f"Sukses mengekstrak data struk menggunakan {model_used} (temperature=0.0).")
+
+        # Logika Pajak: Jika tertulis pajak sudah termasuk (Tax Inclusive / Harga termasuk PPN)
+        # atau jika jumlah harga seluruh item sudah sama dengan grand_total, maka isi nilai tax dengan 0.
+        total_items_price = sum(int(it.get("qty", 1)) * int(it.get("unit_price", 0)) for it in d.get("items", []))
+        grand_total_int = int(d.get("grand_total", 0) or 0)
+        is_tax_inc = bool(d.get("is_tax_inclusive", False))
+        raw_tax = int(d.get("tax", 0) or 0)
+
+        if is_tax_inc or (total_items_price > 0 and total_items_price == grand_total_int):
+            final_tax = 0
+            is_tax_inc = True
+        else:
+            final_tax = raw_tax
+
         return {
             "restaurant_name": d.get("restaurant_name") or "Restoran / Kafe",
             "transaction_date": "",
             "items": items,
             "subtotal": str(d.get("subtotal", 0)),
-            "tax": str(d.get("tax", 0)),
+            "tax": str(final_tax),
+            "is_tax_inclusive": is_tax_inc,
             "service": str(d.get("service_charge", 0)),
             "service_charge": d.get("service_charge", 0),
             "discount": str(d.get("discount", 0)),

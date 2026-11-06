@@ -35,6 +35,43 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ==========================================
+    // NAVBAR QUOTA BADGE HELPER
+    // ==========================================
+    function updateNavbarQuotaBadge(remainingQuota) {
+        const badgeContainer = document.querySelector('.quota-badge');
+        const quotaBadgeEl = document.querySelector('.quota-badge strong');
+        const quotaIndicator = document.querySelector('.quota-indicator');
+
+        if (!quotaBadgeEl) return;
+
+        // Jika mode admin atau remaining adalah 'Unlimited'
+        if (remainingQuota === 'Unlimited' || (badgeContainer && badgeContainer.classList.contains('admin-badge'))) {
+            quotaBadgeEl.textContent = 'Unlimited';
+            if (quotaIndicator) {
+                quotaIndicator.className = 'quota-indicator';
+                quotaIndicator.style.background = '#10b981';
+                quotaIndicator.style.boxShadow = '0 0 8px #10b981';
+            }
+            return;
+        }
+
+        // Untuk user biasa
+        if (remainingQuota === 0 || remainingQuota === '0' || remainingQuota === 'Habis') {
+            quotaBadgeEl.textContent = 'Habis';
+            if (quotaIndicator) quotaIndicator.className = 'quota-indicator empty';
+        } else {
+            quotaBadgeEl.textContent = `${remainingQuota}/5`;
+            if (quotaIndicator) {
+                if (Number(remainingQuota) <= 2) {
+                    quotaIndicator.className = 'quota-indicator low';
+                } else {
+                    quotaIndicator.className = 'quota-indicator';
+                }
+            }
+        }
+    }
+
+    // ==========================================
     // STEP NAVIGATION
     // ==========================================
     function goToStep(stepNumber) {
@@ -176,8 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (response.status === 429 || (result.message && result.message.includes('kuota 1 hari sudah habis'))) {
                         // Update badge di navbar jika ada
-                        const quotaBadgeEl = document.querySelector('.quota-badge strong');
-                        if (quotaBadgeEl) quotaBadgeEl.textContent = 'Habis';
+                        updateNavbarQuotaBadge('Habis');
                         throw new Error('kuota 1 hari sudah habis see you besok');
                     }
                     throw new Error(result.message || 'Gagal memproses struk.');
@@ -185,10 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Perbarui sisa kuota jika ada di navbar
                 if (result.remaining_quota !== undefined) {
-                    const quotaBadgeEl = document.querySelector('.quota-badge strong');
-                    if (quotaBadgeEl) {
-                        quotaBadgeEl.textContent = result.remaining_quota === 0 ? 'Habis' : `${result.remaining_quota}/5`;
-                    }
+                    updateNavbarQuotaBadge(result.remaining_quota);
                 }
 
                 // Sukses membaca OCR
@@ -230,33 +263,44 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateOcrReview(data) {
         state.billInfo.restaurant_name = data.restaurant_name || '';
         state.billInfo.transaction_date = data.transaction_date || '';
-        state.billInfo.tax = parseNumber(data.tax);
         state.billInfo.service = parseNumber(data.service);
         state.billInfo.discount = parseNumber(data.discount);
         state.billInfo.other_fees = parseNumber(data.other_fees);
         state.billInfo.grand_total = parseNumber(data.grand_total);
-
-        restoNameInput.value = state.billInfo.restaurant_name;
-        transDateInput.value = state.billInfo.transaction_date;
-        inputTax.value = state.billInfo.tax || '';
-        inputService.value = state.billInfo.service || '';
-        inputDiscount.value = state.billInfo.discount || '';
-        inputOtherFees.value = state.billInfo.other_fees || '';
-        inputGrandTotal.value = state.billInfo.grand_total || '';
 
         // Items
         state.items = (data.items || []).map((it, idx) => ({
             id: it.id || (idx + 1),
             name: it.name || '',
             qty: parseNumber(it.qty) || 1,
-            price: parseNumber(it.price) || 0,
-            subtotal: (parseNumber(it.qty) || 1) * (parseNumber(it.price) || 0),
+            price: parseNumber(it.price || it.unit_price) || 0,
+            subtotal: (parseNumber(it.qty) || 1) * (parseNumber(it.price || it.unit_price) || 0),
             confidence: it.confidence || 'high',
         }));
 
         if (state.items.length === 0) {
             state.items.push({ id: 1, name: '', qty: 1, price: 0, subtotal: 0, confidence: 'high' });
         }
+
+        // Jika pada struk tertulis pajak sudah termasuk (Tax Inclusive / Harga termasuk PPN)
+        // atau jika jumlah harga seluruh item sudah sama dengan grand_total, maka isi nilai tax dengan 0
+        const calculatedItemsSum = state.items.reduce((acc, it) => acc + it.subtotal, 0);
+        const grandTotalVal = state.billInfo.grand_total;
+        const isTaxInclusive = Boolean(data.is_tax_inclusive);
+
+        if (isTaxInclusive || (calculatedItemsSum > 0 && Math.abs(calculatedItemsSum - grandTotalVal) < 1)) {
+            state.billInfo.tax = 0;
+        } else {
+            state.billInfo.tax = parseNumber(data.tax);
+        }
+
+        restoNameInput.value = state.billInfo.restaurant_name;
+        transDateInput.value = state.billInfo.transaction_date;
+        inputTax.value = state.billInfo.tax !== 0 ? state.billInfo.tax : 0;
+        inputService.value = state.billInfo.service || '';
+        inputDiscount.value = state.billInfo.discount || '';
+        inputOtherFees.value = state.billInfo.other_fees || '';
+        inputGrandTotal.value = state.billInfo.grand_total || '';
 
         renderItemsTable();
         recalculateOcrTotals();
@@ -1152,20 +1196,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Perbarui sisa kuota jika ada di navbar
                 if (result.remaining_quota !== undefined) {
-                    const quotaBadgeEl = document.querySelector('.quota-badge strong');
-                    if (quotaBadgeEl) {
-                        quotaBadgeEl.textContent = result.remaining_quota === 0 ? 'Habis' : `${result.remaining_quota}/5`;
-                    }
-                    const quotaIndicator = document.querySelector('.quota-indicator');
-                    if (quotaIndicator) {
-                        if (result.remaining_quota === 0) {
-                            quotaIndicator.className = 'quota-indicator empty';
-                        } else if (result.remaining_quota <= 2) {
-                            quotaIndicator.className = 'quota-indicator low';
-                        } else {
-                            quotaIndicator.className = 'quota-indicator';
-                        }
-                    }
+                    updateNavbarQuotaBadge(result.remaining_quota);
                 }
 
                 initStepConfirmation(result);

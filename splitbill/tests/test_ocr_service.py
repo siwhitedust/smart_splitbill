@@ -96,3 +96,62 @@ class OCRReceiptServiceTest(SimpleTestCase):
             self.service.process_receipt_image(uploaded)
 
         self.assertEqual(str(ctx.exception), "server sedang sibuk")
+
+    @patch('splitbill.services.ocr_service.scan_receipt_gemini')
+    def test_tax_is_zero_when_sum_of_items_equals_grand_total(self, mock_scan):
+        """Jika jumlah harga seluruh item sama dengan grand_total, nilai tax harus diisi 0."""
+        mock_scan.return_value = {
+            "status": "success",
+            "model_used": "gemini-3.5-flash-lite",
+            "data": {
+                "restaurant_name": "Warung Nasi",
+                "items": [
+                    {"name": "Nasi Goreng", "qty": 1, "unit_price": 30000, "total_price": 30000},
+                    {"name": "Es Teh", "qty": 1, "unit_price": 5000, "total_price": 5000},
+                ],
+                "subtotal": 35000,
+                "tax": 3500,  # Informasi PPN di struk, tapi total bayar tetap 35000
+                "service_charge": 0,
+                "discount": 0,
+                "grand_total": 35000,  # sama dengan jumlah item (30000 + 5000)
+            }
+        }
+
+        img = Image.new('RGB', (100, 100), color=(255, 255, 255))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        uploaded = SimpleUploadedFile('struk.jpg', buf.getvalue(), content_type='image/jpeg')
+
+        result = self.service.process_receipt_image(uploaded)
+        self.assertEqual(result['tax'], '0')
+        self.assertTrue(result['is_tax_inclusive'])
+        self.assertEqual(result['grand_total'], '35000')
+
+    @patch('splitbill.services.ocr_service.scan_receipt_gemini')
+    def test_tax_is_zero_when_is_tax_inclusive_flag_set(self, mock_scan):
+        """Jika tertera pajak sudah termasuk (is_tax_inclusive=True), nilai tax harus 0."""
+        mock_scan.return_value = {
+            "status": "success",
+            "model_used": "gemini-3.5-flash-lite",
+            "data": {
+                "restaurant_name": "Resto Tax Inclusive",
+                "items": [
+                    {"name": "Burger Combo (Inc. Tax)", "qty": 1, "unit_price": 45000, "total_price": 45000},
+                ],
+                "subtotal": 45000,
+                "tax": 4500,
+                "is_tax_inclusive": True,
+                "service_charge": 0,
+                "discount": 0,
+                "grand_total": 45000,
+            }
+        }
+
+        img = Image.new('RGB', (100, 100), color=(255, 255, 255))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        uploaded = SimpleUploadedFile('struk.jpg', buf.getvalue(), content_type='image/jpeg')
+
+        result = self.service.process_receipt_image(uploaded)
+        self.assertEqual(result['tax'], '0')
+        self.assertTrue(result['is_tax_inclusive'])

@@ -87,7 +87,19 @@ class ReceiptData(BaseModel):
     restaurant_name: Optional[str] = Field(default="", description="Nama restoran/kafe jika tertera pada struk")
     items: List[ReceiptItem] = Field(default_factory=list, description="Daftar menu makanan dan minuman yang dipesan")
     subtotal: int = Field(default=0, description="Total harga semua makanan sebelum pajak dan diskon (integer murni)")
-    tax: int = Field(default=0, description="Total pajak PB1 / PPN dalam Rupiah (integer, isi 0 jika tidak ada)")
+    tax: int = Field(
+        default=0,
+        description=(
+            "Total nominal pajak PB1 / PPN dalam Rupiah yang DITAMBAHKAN di luar harga item. "
+            "PENTING: Jika pada struk tertulis bahwa pajak sudah termasuk (Tax Inclusive / Harga termasuk PPN / "
+            "Include Tax / Termasuk Pajak) atau jika jumlah harga seluruh item sudah sama dengan grand_total, "
+            "maka WAJIB isi nilai tax dengan 0."
+        )
+    )
+    is_tax_inclusive: bool = Field(
+        default=False,
+        description="True jika pada struk tertulis bahwa pajak sudah termasuk (Tax Inclusive / Harga termasuk PPN / Termasuk Pajak / All prices include tax)."
+    )
     service_charge: int = Field(default=0, description="Biaya layanan restoran / ongkir / take away dalam Rupiah (integer, isi 0 jika tidak ada)")
     discount: int = Field(default=0, description="Total potongan harga / promo / voucher sebagai nilai positif (integer, isi 0 jika tidak ada)")
     grand_total: int = Field(default=0, description="Total akhir yang dibayarkan pada struk (integer murni)")
@@ -110,7 +122,13 @@ PEDOMAN PENTING:
    - 'total_price': Total harga untuk item tersebut (qty * unit_price).
 
 2. Komponen Biaya:
-   - 'tax': Nominal pajak (PB1, PPN, Tax). Jika tertulis 'PB 1 10% B.400' atau angka dengan huruf mirip, tafsirkan dengan benar (misal B.400 = 8400). Isi 0 jika tidak ada.
+   - 'tax': Nominal pajak (PB1, PPN, Tax) yang ditambahkan ke subtotal.
+     * ATURAN KHUSUS PAJAK:
+       a. Jika pada struk tertulis bahwa pajak sudah termasuk (misalnya 'Tax Inclusive', 'Harga termasuk PPN', 'Include Tax', 'Tax Included', 'Termasuk Pajak', 'All prices include tax', 'Inclusive of Tax/PPN', atau sejenisnya), MAKA isi nilai 'tax' dengan 0, dan set 'is_tax_inclusive': true.
+       b. Jika jumlah harga seluruh item (sum of item total_price) sudah sama dengan 'grand_total', MAKA isi nilai 'tax' dengan 0.
+       c. Jika pada bagian bawah struk tertulis rincian informasi pajak (misal 'Tax Included Rp 5.000' atau 'PPN 11% Rp 8.000') namun total bayar tidak bertambah karena harga item sudah inklusif, JANGAN masukkan sebagai pajak tambahan; tetap isi 'tax': 0.
+       d. Hanya isi 'tax' jika pajak tersebut memang DITAMBAHKAN di luar harga makanan (misal subtotal 50.000 + pajak 5.000 = grand total 55.000). Jika tertulis 'PB 1 10% B.400' atau angka dengan huruf mirip dan memang ditambahkan, tafsirkan dengan benar (misal B.400 = 8400).
+       e. Isi 0 jika tidak ada pajak.
    - 'service_charge': Biaya layanan (Service charge, Serv, SC) atau ongkos kirim. Isi 0 jika tidak ada.
    - 'discount': Total diskon, promo, atau voucher. Selalu simpan sebagai angka positif integer. Isi 0 jika tidak ada.
    - 'subtotal': Total harga makanan/minuman sebelum pajak dan diskon.
@@ -343,6 +361,20 @@ def scan_receipt_gemini(
             sc = extracted_dict.get("service_charge", 0)
             dc = extracted_dict.get("discount", 0)
             extracted_dict["grand_total"] = max(0, st + tx + sc - dc)
+
+        # 7. Penanganan Pajak Sudah Termasuk (Tax Inclusive) atau Item Total == Grand Total:
+        # Jika pada struk tertulis pajak sudah termasuk (Tax Inclusive / Harga termasuk PPN)
+        # atau jika jumlah harga seluruh item sudah sama dengan grand_total, maka isi nilai tax dengan 0.
+        grand_total = extracted_dict.get("grand_total", 0)
+        is_tax_inclusive = bool(extracted_dict.get("is_tax_inclusive", False))
+
+        if is_tax_inclusive or (calculated_subtotal > 0 and calculated_subtotal == grand_total):
+            logger.info(
+                f"Pajak diset ke 0: is_tax_inclusive={is_tax_inclusive}, "
+                f"calculated_subtotal={calculated_subtotal}, grand_total={grand_total}"
+            )
+            extracted_dict["tax"] = 0
+            extracted_dict["is_tax_inclusive"] = True
 
         return {
             "status": "success",
