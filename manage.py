@@ -17,10 +17,17 @@ def main():
         runserver_command.default_port = os.environ.get('PORT', os.environ.get('DJANGO_PORT', '8080'))
         runserver_command.default_addr = os.environ.get('DJANGO_HOST', '0.0.0.0')
     except ImportError as exc:
+        import subprocess
         base_dir = Path(__file__).resolve().parent
-        venv_python = base_dir / 'venv' / 'bin' / 'python'
-        if venv_python.is_file() and sys.executable != str(venv_python):
-            os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+        candidate_paths = [
+            base_dir / '.venv' / 'Scripts' / 'python.exe',
+            base_dir / 'venv' / 'Scripts' / 'python.exe',
+            base_dir / '.venv' / 'bin' / 'python',
+            base_dir / 'venv' / 'bin' / 'python',
+        ]
+        for venv_python in candidate_paths:
+            if venv_python.is_file() and sys.executable.lower() != str(venv_python).lower():
+                sys.exit(subprocess.call([str(venv_python)] + sys.argv))
         raise ImportError(
             "Couldn't import Django. Are you sure it's installed and "
             "available on your PYTHONPATH environment variable? Did you "
