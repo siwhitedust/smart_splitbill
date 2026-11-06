@@ -130,6 +130,10 @@ ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']
 
 # Security Settings untuk Production vs Development
+ADMIN_URL_PATH = os.environ.get('ADMIN_URL_PATH', 'portal-rahasia-admin').strip().strip('/')
+if not ADMIN_URL_PATH:
+    ADMIN_URL_PATH = 'portal-rahasia-admin'
+
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True

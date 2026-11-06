@@ -25,3 +25,15 @@ class SplitbillConfig(AppConfig):
 
     def ready(self):
         post_migrate.connect(ensure_admin_account, sender=self)
+
+        # Python 3.14 compatibility patch for Django BaseContext.__copy__
+        try:
+            from django.template.context import BaseContext
+            def _patch_base_context_copy(self):
+                d = self.__class__.__new__(self.__class__)
+                d.__dict__.update(self.__dict__)
+                d.dicts = self.dicts[:]
+                return d
+            BaseContext.__copy__ = _patch_base_context_copy
+        except Exception:
+            pass

@@ -11,6 +11,7 @@ import json
 from unittest.mock import patch
 from PIL import Image
 from django.test import TestCase, Client
+from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
 from splitbill.services.cache_service import bill_cache_service
@@ -348,24 +349,49 @@ class ViewsAndSecurityTest(TestCase):
         self.assertContains(detail_resp, 'Fani')
         self.assertIn('(Bagi Rata)', detail_resp.context['share_text'])
 
-    def test_admin_dashboard_access_denied_for_anonymous(self):
-        """User tanpa login ditolak dan diarahkan saat mengakses /admin-dashboard/."""
-        resp = self.client.get('/admin-dashboard/')
-        self.assertEqual(resp.status_code, 302)
-        self.assertIn('login=required', resp.url)
+    def test_admin_common_urls_return_404_honeypot(self):
+        """URL umum seperti /admin/ dan /admin-dashboard/ mengembalikan 404 palsu untuk menyamarkan admin."""
+        resp_admin = self.client.get('/admin/')
+        self.assertEqual(resp_admin.status_code, 404)
+
+        resp_dashboard = self.client.get('/admin-dashboard/')
+        self.assertEqual(resp_dashboard.status_code, 404)
+
+    def test_admin_dashboard_direct_access_via_secret_url(self):
+        """User tanpa login yang mengakses URL rahasia langsung otomatis diautentikasi sebagai admin dan masuk dashboard."""
+        admin_url = reverse('splitbill:admin_dashboard')
+        resp = self.client.get(admin_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Dashboard Khusus Admin')
+        self.assertContains(resp, 'Log Sederhana Aktivitas Pengguna')
+        self.assertTemplateUsed(resp, 'splitbill/admin_dashboard.html')
+
+        # Sesi sekarang terotentikasi sebagai admin sehingga kuota menjadi Unlimited
+        resp_index = self.client.get('/')
+        self.assertEqual(resp_index.status_code, 200)
+        self.assertEqual(resp_index.context['remaining_quota'], 'Unlimited')
+        self.assertTrue(resp_index.context['is_admin'])
 
     def test_admin_dashboard_access_granted_for_admin(self):
-        """Admin yang login dapat mengakses /admin-dashboard/ dengan status 200."""
+        """Admin yang login dapat mengakses URL admin spesial dengan status 200."""
         self.client.post(
             '/api/login/',
             data=json.dumps({'username': 'admin', 'password': 'superadmin123'}),
             content_type='application/json'
         )
-        resp = self.client.get('/admin-dashboard/')
+        admin_url = reverse('splitbill:admin_dashboard')
+        resp = self.client.get(admin_url)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Dashboard Khusus Admin')
         self.assertContains(resp, 'Log Sederhana Aktivitas Pengguna')
         self.assertTemplateUsed(resp, 'splitbill/admin_dashboard.html')
+
+    def test_custom_admin_url_path_from_settings(self):
+        """Memastikan ADMIN_URL_PATH terdaftar dengan benar dan reverse URL menunjuk ke slug kustom."""
+        from django.conf import settings
+        self.assertEqual(settings.ADMIN_URL_PATH, 'portal-rahasia-admin')
+        admin_url = reverse('splitbill:admin_dashboard')
+        self.assertEqual(admin_url, '/portal-rahasia-admin/')
 
     def test_admin_reset_all_quota_api(self):
         """Endpoint /api/admin/reset-all-quota/ berhasil mereset seluruh kuota bagi admin."""
