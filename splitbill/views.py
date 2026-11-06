@@ -181,29 +181,50 @@ def save_bill_api(request):
             'errors': form_errors,
         }, status=400)
 
+    split_mode = body.get('split_mode', 'itemized')
     bill_info = body.get('bill_info', {})
     items = body.get('items', [])
     participants = body.get('participants', [])
 
-    # Validasi alokasi seluruh item
-    is_allocated, unallocated_items, alloc_errors = calculation_service.validate_allocation(items, participants)
-    if not is_allocated:
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Pembagian item belum tuntas: ' + '; '.join(alloc_errors),
-            'unallocated_items': unallocated_items,
-            'errors': alloc_errors,
-        }, status=400)
+    if split_mode == 'equal':
+        participant_count = int(body.get('participant_count') or len(participants) or 1)
+        participant_names = body.get('participant_names')
+        if not participant_names and participants:
+            participant_names = [p.get('name') for p in participants if isinstance(p, dict) and p.get('name')]
 
-    # Hitung final kalkulasi dengan Largest Remainder Method
-    try:
-        calculated_data = calculation_service.calculate_splitbill(bill_info, items, participants)
-    except Exception as e:
-        logger.error(f"Gagal melakukan kalkulasi splitbill: {e}", exc_info=True)
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Terjadi kesalahan saat menghitung rincian tagihan.'
-        }, status=500)
+        try:
+            calculated_data = calculation_service.calculate_equal_split(
+                bill_info=bill_info,
+                participant_count=participant_count,
+                participant_names=participant_names,
+                items=items
+            )
+        except Exception as e:
+            logger.error(f"Gagal melakukan kalkulasi bagi rata: {e}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Terjadi kesalahan saat menghitung bagi rata.'
+            }, status=500)
+    else:
+        # Validasi alokasi seluruh item
+        is_allocated, unallocated_items, alloc_errors = calculation_service.validate_allocation(items, participants)
+        if not is_allocated:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Pembagian item belum tuntas: ' + '; '.join(alloc_errors),
+                'unallocated_items': unallocated_items,
+                'errors': alloc_errors,
+            }, status=400)
+
+        # Hitung final kalkulasi dengan Largest Remainder Method
+        try:
+            calculated_data = calculation_service.calculate_splitbill(bill_info, items, participants)
+        except Exception as e:
+            logger.error(f"Gagal melakukan kalkulasi splitbill: {e}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Terjadi kesalahan saat menghitung rincian tagihan.'
+            }, status=500)
 
     # Simpan ke cache dengan TTL 600 detik
     token = bill_cache_service.save_bill(calculated_data)
@@ -241,8 +262,10 @@ def bill_detail(request, token: str):
         return render(request, 'splitbill/expired.html', {'token': token}, status=404)
 
     # Bangun rincian teks ringkas untuk tombol "Salin ke WhatsApp"
+    is_equal_split = bill.get('split_mode') == 'equal'
+    mode_suffix = " (Bagi Rata)" if is_equal_split else ""
     wa_lines = [
-        f"🧾 *Smart Splitbill - {bill.get('restaurant_name')}*",
+        f"🧾 *Smart Splitbill{mode_suffix} - {bill.get('restaurant_name')}*",
         f"🗓 Tanggal: {bill.get('transaction_date') or bill.get('created_at_str')}",
         f"💰 Total Tagihan: {bill.get('grand_total_formatted')}",
         "",
@@ -250,8 +273,9 @@ def bill_detail(request, token: str):
     ]
     for p in bill.get('participants', []):
         wa_lines.append(f"• *{p.get('name')}*: {p.get('total_formatted')}")
-        for it in p.get('items', []):
-            wa_lines.append(f"   - {it.get('qty')}x {it.get('name')} ({it.get('subtotal_formatted')})")
+        if not is_equal_split:
+            for it in p.get('items', []):
+                wa_lines.append(f"   - {it.get('qty')}x {it.get('name')} ({it.get('subtotal_formatted')})")
 
     wa_lines.append("")
     wa_lines.append(f"🔗 Detail lengkap: {request.build_absolute_uri()}")

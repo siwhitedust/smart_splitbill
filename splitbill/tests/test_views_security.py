@@ -302,5 +302,52 @@ class ViewsAndSecurityTest(TestCase):
         resp = self.client.post('/api/admin/reset-kuota/')
         self.assertEqual(resp.status_code, 403)
 
+    def test_homepage_has_two_mode_buttons(self):
+        """Halaman utama memuat 2 tombol mode: 'Bagi Rata' dan 'Sendiri-sendiri'."""
+        resp = self.client.get('/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Bagi Rata')
+        self.assertContains(resp, 'Sendiri-sendiri')
+        self.assertContains(resp, '?mode=bagi-rata')
+        self.assertContains(resp, '?mode=sendiri')
+
+    def test_save_equal_split_api_and_view_detail(self):
+        """Uji penyimpanan mode Bagi Rata (/api/simpan/) dan tampilan detailnya."""
+        cache.clear()
+        payload = {
+            'split_mode': 'equal',
+            'participant_count': 3,
+            'participant_names': ['Doni', 'Eka', 'Fani'],
+            'bill_info': {
+                'restaurant_name': 'Warung Padang Sederhana',
+                'transaction_date': '2026-11-06',
+                'subtotal': '90000',
+                'tax': '9000',
+                'service': '1000',
+                'discount': '0',
+                'other_fees': '0',
+                'grand_total': '100000',
+            },
+            'items': [
+                {'id': 1, 'name': 'Nasi Rendang', 'qty': '3', 'price': '30000'}
+            ]
+        }
+        resp = self.client.post('/api/simpan/', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['ttl_seconds'], 600)
+        token = data['token']
+
+        # Buka halaman detail tagihan
+        detail_resp = self.client.get(f'/tagihan/{token}')
+        self.assertEqual(detail_resp.status_code, 200)
+        self.assertContains(detail_resp, 'Mode: Bagi Rata')
+        self.assertContains(detail_resp, 'Doni')
+        self.assertContains(detail_resp, 'Eka')
+        self.assertContains(detail_resp, 'Fani')
+        self.assertIn('(Bagi Rata)', detail_resp.context['share_text'])
+
+
 
 

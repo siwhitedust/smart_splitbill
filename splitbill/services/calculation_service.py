@@ -251,6 +251,158 @@ class CalculationService:
         total_participants_final = sum(Decimal(p['total']) for p in final_participants)
 
         return {
+            'split_mode': 'itemized',
+            'restaurant_name': bill_info.get('restaurant_name', 'Restoran / Kafe').strip() or 'Restoran / Kafe',
+            'transaction_date': bill_info.get('transaction_date', '').strip(),
+            'subtotal': str(calculated_subtotal),
+            'subtotal_formatted': format_rupiah(calculated_subtotal),
+            'tax': str(tax),
+            'tax_formatted': format_rupiah(tax),
+            'service': str(service),
+            'service_formatted': format_rupiah(service),
+            'discount': str(discount),
+            'discount_formatted': format_rupiah(discount),
+            'other_fees': str(other_fees),
+            'other_fees_formatted': format_rupiah(other_fees),
+            'grand_total': str(grand_total),
+            'grand_total_formatted': format_rupiah(grand_total),
+            'calculated_grand_total': str(calculated_grand_total),
+            'has_total_discrepancy': has_total_discrepancy,
+            'discrepancy_amount': str(discrepancy_amount),
+            'discrepancy_formatted': format_rupiah(discrepancy_amount),
+            'items': processed_items,
+            'participants': final_participants,
+            'participant_count': len(final_participants),
+            'total_participants_sum': str(total_participants_final),
+            'total_participants_sum_formatted': format_rupiah(total_participants_final),
+        }
+
+    @staticmethod
+    def calculate_equal_split(
+        bill_info: Dict[str, Any],
+        participant_count: int,
+        participant_names: List[str] = None,
+        items: List[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Kalkulasi pembagian rata (Equal Split) ke N orang peserta dengan presisi Rupiah pas.
+        Jika grand_total tidak habis dibagi N, sisa pembagian bulat (remainder) didistribusikan
+        ke peserta pertama secara deterministik sehingga jumlah total peserta 100% tepat sama
+        dengan grand_total tanpa selisih 1 Rupiah pun.
+        """
+        if participant_count < 1:
+            participant_count = 1
+
+        tax = parse_decimal(bill_info.get('tax', 0))
+        service = parse_decimal(bill_info.get('service', 0))
+        discount = parse_decimal(bill_info.get('discount', 0))
+        other_fees = parse_decimal(bill_info.get('other_fees', 0))
+        raw_grand_total = parse_decimal(bill_info.get('grand_total', 0))
+
+        # Hitung subtotal
+        items = items or []
+        calculated_subtotal = Decimal('0')
+        processed_items = []
+        for idx, it in enumerate(items):
+            it_qty = parse_decimal(it.get('qty', 1))
+            it_price = parse_decimal(it.get('price', 0))
+            it_subtotal = it_price * it_qty
+            calculated_subtotal += it_subtotal
+            processed_items.append({
+                'id': it.get('id', idx),
+                'name': it.get('name', f"Menu #{idx + 1}").strip() or f"Menu #{idx + 1}",
+                'qty': str(it_qty),
+                'price': str(it_price),
+                'subtotal': str(it_subtotal),
+                'subtotal_formatted': format_rupiah(it_subtotal),
+            })
+
+        calculated_grand_total = calculated_subtotal + tax + service + other_fees - discount
+
+        if raw_grand_total > Decimal('0'):
+            grand_total = raw_grand_total
+        else:
+            grand_total = calculated_grand_total
+
+        if calculated_subtotal == Decimal('0'):
+            calculated_subtotal = max(Decimal('0'), grand_total - tax - service + discount - other_fees)
+
+        # Discrepancy
+        has_total_discrepancy = False
+        discrepancy_amount = Decimal('0')
+        if raw_grand_total > Decimal('0') and calculated_subtotal > Decimal('0'):
+            diff = abs(calculated_grand_total - raw_grand_total)
+            if diff >= Decimal('1'):
+                has_total_discrepancy = True
+                discrepancy_amount = calculated_grand_total - raw_grand_total
+
+        # Presisi Rupiah Pas untuk Grand Total
+        target_total_sum = grand_total.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        int_target = int(target_total_sum)
+        base_total = int_target // participant_count
+        rem_total = int_target % participant_count
+
+        # Distribusi komponen (pajak, service, diskon, dll) secara proporsional/rata
+        int_tax = int(tax.quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+        base_tax = int_tax // participant_count
+        rem_tax = int_tax % participant_count
+
+        int_service = int(service.quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+        base_service = int_service // participant_count
+        rem_service = int_service % participant_count
+
+        int_discount = int(discount.quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+        base_discount = int_discount // participant_count
+        rem_discount = int_discount % participant_count
+
+        int_other = int(other_fees.quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+        base_other = int_other // participant_count
+        rem_other = int_other % participant_count
+
+        final_participants = []
+        for i in range(participant_count):
+            # Tentukan nama
+            if participant_names and i < len(participant_names) and str(participant_names[i]).strip():
+                p_name = str(participant_names[i]).strip()
+            else:
+                p_name = f"Orang {i + 1}"
+
+            p_total = Decimal(str(base_total + (1 if i < rem_total else 0)))
+            p_tax = Decimal(str(base_tax + (1 if i < rem_tax else 0)))
+            p_service = Decimal(str(base_service + (1 if i < rem_service else 0)))
+            p_discount = Decimal(str(base_discount + (1 if i < rem_discount else 0)))
+            p_other = Decimal(str(base_other + (1 if i < rem_other else 0)))
+            p_subtotal = p_total - p_tax - p_service + p_discount - p_other
+
+            final_participants.append({
+                'id': str(i + 1),
+                'name': p_name,
+                'items': [{
+                    'item_id': f"equal-{i + 1}",
+                    'name': 'Porsi Bagi Rata Tagihan',
+                    'qty': '1',
+                    'price': str(p_subtotal),
+                    'subtotal': str(p_subtotal),
+                    'subtotal_formatted': format_rupiah(p_subtotal),
+                }],
+                'subtotal': str(p_subtotal),
+                'subtotal_formatted': format_rupiah(p_subtotal),
+                'tax': str(p_tax),
+                'tax_formatted': format_rupiah(p_tax),
+                'service': str(p_service),
+                'service_formatted': format_rupiah(p_service),
+                'discount': str(p_discount),
+                'discount_formatted': format_rupiah(p_discount),
+                'other_fees': str(p_other),
+                'other_fees_formatted': format_rupiah(p_other),
+                'total': str(p_total),
+                'total_formatted': format_rupiah(p_total),
+            })
+
+        total_participants_final = sum(Decimal(p['total']) for p in final_participants)
+
+        return {
+            'split_mode': 'equal',
             'restaurant_name': bill_info.get('restaurant_name', 'Restoran / Kafe').strip() or 'Restoran / Kafe',
             'transaction_date': bill_info.get('transaction_date', '').strip(),
             'subtotal': str(calculated_subtotal),

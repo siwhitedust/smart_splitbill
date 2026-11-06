@@ -12,12 +12,33 @@
             Foto struk pesanan restoranmu, biarkan AI membaca rincian pesanan secara otomatis,
             bagi menu ke teman-temanmu secara adil, dan bagikan rinciannya via link langsung.
         </p>
-        <div style="display: flex; justify-content: center; gap: 0.75rem;">
-            <a href="{% url 'splitbill:create' %}" class="btn btn-primary btn-lg">
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                <span>Buat Splitbill Baru</span>
+
+        <!-- 2 Tombol Pilihan Mode Utama: Bagi Rata & Sendiri-sendiri (Tampilan Terang & Serasi) -->
+        <div class="hero-mode-grid">
+            <!-- Mode 1: Bagi Rata -->
+            <a href="{% url 'splitbill:create' %}?mode=bagi-rata" class="hero-mode-card primary" title="Bagi seluruh total tagihan sama rata ke sejumlah orang">
+                <div class="hero-mode-icon">
+                    <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="hero-mode-title">Bagi Rata</div>
+                    <div class="hero-mode-subtitle">Bagi rata tagihan ke sejumlah orang</div>
+                </div>
+            </a>
+
+            <!-- Mode 2: Sendiri-sendiri (Menggunakan Tampilan Terang yang Sama) -->
+            <a href="{% url 'splitbill:create' %}?mode=sendiri" class="hero-mode-card primary" title="Pilih dan bagikan menu pesanan ke masing-masing orang">
+                <div class="hero-mode-icon">
+                    <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="hero-mode-title">Sendiri-sendiri</div>
+                    <div class="hero-mode-subtitle">Hitung pesanan masing-masing orang</div>
+                </div>
             </a>
         </div>
     </section>
@@ -78,11 +99,16 @@
             </div>
             <div class="empty-state-title">Belum ada riwayat splitbill.</div>
             <p style="font-size: 0.9rem; margin-bottom: 1.25rem;">
-                Kamu belum memiliki tagihan aktif yang tersimpan dalam sesi ini.
+                Pilih mode di bawah untuk mulai membuat splitbill:
             </p>
-            <a href="{% url 'splitbill:create' %}" class="btn btn-secondary btn-sm">
-                + Buat Tagihan Baru Sekarang
-            </a>
+            <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+                <a href="{% url 'splitbill:create' %}?mode=bagi-rata" class="btn btn-primary btn-sm">
+                    ⚖️ Bagi Rata
+                </a>
+                <a href="{% url 'splitbill:create' %}?mode=sendiri" class="btn btn-secondary btn-sm">
+                    👤 Sendiri-sendiri
+                </a>
+            </div>
         </div>
         {% endif %}
     </section>

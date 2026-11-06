@@ -5,8 +5,13 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Inisialisasi Mode dari query parameter ?mode=
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialMode = urlParams.get('mode') === 'sendiri' ? 'sendiri' : 'bagi-rata';
+
     // State in-memory
     const state = {
+        mode: initialMode, // 'bagi-rata' atau 'sendiri'
         currentStep: 1,
         selectedFile: null,
         billInfo: {
@@ -20,9 +25,16 @@ document.addEventListener('DOMContentLoaded', () => {
             grand_total: 0,
         },
         items: [],          // Array: [{id, name, qty, price, subtotal, confidence}]
-        participants: [],   // Array: [{id, name, items: [{item_id, name, qty, price, subtotal}]}]
+        participants: [],   // Array untuk mode 'sendiri'
         editingParticipantIndex: -1, // -1 untuk peserta baru
         modalParticipantItems: [],   // Draft item di dalam modal
+        equalSplit: {
+            count: 2,
+            participants: [
+                { id: '1', name: 'Orang 1' },
+                { id: '2', name: 'Orang 2' }
+            ]
+        }
     };
 
     // DOM Elements
@@ -33,6 +45,21 @@ document.addEventListener('DOMContentLoaded', () => {
         4: document.getElementById('step-final-review'),
         5: document.getElementById('step-confirmation'),
     };
+    const stepEqualSplit = document.getElementById('step-equal-split');
+    const stepperLabelStep3 = document.getElementById('stepper-label-step3');
+    const btnProceedSplitText = document.getElementById('btn-proceed-split-text');
+
+    // Equal Split DOM Elements
+    const equalRestoName = document.getElementById('equal-resto-name');
+    const equalGrandTotal = document.getElementById('equal-grand-total');
+    const btnEqualMinus = document.getElementById('btn-equal-minus');
+    const btnEqualPlus = document.getElementById('btn-equal-plus');
+    const inputEqualCount = document.getElementById('input-equal-count');
+    const equalPerPersonDisplay = document.getElementById('equal-per-person-display');
+    const equalRemainderNote = document.getElementById('equal-remainder-note');
+    const equalParticipantsList = document.getElementById('equal-participants-list');
+    const btnEqualBackToOcr = document.getElementById('btn-equal-back-to-ocr');
+    const btnEqualToReview = document.getElementById('btn-equal-to-review');
 
     // ==========================================
     // NAVBAR QUOTA BADGE HELPER
@@ -72,22 +99,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // STEP NAVIGATION
+    // STEP NAVIGATION & MODE CONTROL
     // ==========================================
+    function setMode(mode) {
+        state.mode = mode;
+        const isBagiRata = mode === 'bagi-rata';
+
+        if (stepperLabelStep3) {
+            stepperLabelStep3.textContent = isBagiRata ? 'Jumlah Orang' : 'Bagi Pesanan';
+        }
+
+        if (btnProceedSplitText) {
+            btnProceedSplitText.textContent = isBagiRata ? 'Lanjutkan ke Jumlah Orang' : 'Lanjutkan ke Pembagian Pesanan';
+        }
+
+        // Sinkronkan URL jika browser mendukung
+        if (window.history && window.history.replaceState) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('mode', mode);
+            window.history.replaceState({}, '', newUrl.toString());
+        }
+
+        // Jika sedang di step 3, refresh step yang aktif
+        if (state.currentStep === 3) {
+            goToStep(3);
+        }
+    }
+
+    // Terapkan mode awal
+    setMode(state.mode);
+
     function goToStep(stepNumber) {
         state.currentStep = stepNumber;
+
         Object.keys(steps).forEach(k => {
-            if (steps[k]) {
-                steps[k].classList.toggle('active', parseInt(k) === stepNumber);
+            const stepKey = parseInt(k, 10);
+            if (steps[stepKey]) {
+                if (stepKey === 3) {
+                    if (state.mode === 'bagi-rata') {
+                        steps[3].classList.remove('active');
+                        if (stepEqualSplit) stepEqualSplit.classList.toggle('active', stepNumber === 3);
+                    } else {
+                        if (stepEqualSplit) stepEqualSplit.classList.remove('active');
+                        steps[3].classList.toggle('active', stepNumber === 3);
+                    }
+                } else {
+                    steps[stepKey].classList.toggle('active', stepKey === stepNumber);
+                }
             }
         });
 
+        if (stepNumber !== 3 && stepEqualSplit) {
+            stepEqualSplit.classList.remove('active');
+        }
+
         // Update stepper nav jika ada
         document.querySelectorAll('.stepper-item').forEach(item => {
-            const itemStep = parseInt(item.getAttribute('data-step') || '0');
+            const itemStep = parseInt(item.getAttribute('data-step') || '0', 10);
             item.classList.toggle('active', itemStep === stepNumber);
             item.classList.toggle('completed', itemStep < stepNumber);
         });
+
+        if (stepNumber === 3) {
+            if (state.mode === 'bagi-rata') {
+                renderEqualSplit();
+            } else {
+                initStepSplit();
+            }
+        } else if (stepNumber === 4) {
+            initStepReview();
+        }
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -454,6 +535,15 @@ document.addEventListener('DOMContentLoaded', () => {
             state.billInfo.restaurant_name = restoNameInput.value.trim() || 'Restoran / Kafe';
             state.billInfo.transaction_date = transDateInput.value.trim();
 
+            if (state.mode === 'bagi-rata') {
+                if (state.billInfo.grand_total <= 0) {
+                    showToast("Total tagihan harus lebih dari Rp0.", 'warning');
+                    return;
+                }
+                goToStep(3);
+                return;
+            }
+
             // Validasi items
             for (let i = 0; i < state.items.length; i++) {
                 const it = state.items[i];
@@ -472,7 +562,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Pindah ke step pembagian
-            initStepSplit();
             goToStep(3);
         });
     }
@@ -521,6 +610,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.participants = [];
                 state.editingParticipantIndex = -1;
                 state.modalParticipantItems = [];
+                state.equalSplit = {
+                    count: 2,
+                    participants: [
+                        { id: '1', name: 'Orang 1' },
+                        { id: '2', name: 'Orang 2' }
+                    ]
+                };
+                if (inputEqualCount) inputEqualCount.value = 2;
 
                 // 2. Reset Step 1 Elements
                 if (previewImg) previewImg.src = '';
@@ -545,6 +642,157 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // 4. Kembali ke Step 1
                 goToStep(1);
+
+                showToast("Pemeriksaan struk dibatalkan. Kuota Anda tidak berkurang.", 'info');
+            });
+        }
+    }
+
+    // ==========================================
+    // STEP 3 (BAGI RATA): EQUAL SPLIT LOGIC
+    // ==========================================
+    function calculateEqualSplitAmounts() {
+        const grandTotal = Math.round(state.billInfo.grand_total || 0);
+        let count = parseInt(inputEqualCount ? inputEqualCount.value : state.equalSplit.count, 10);
+        if (isNaN(count) || count < 1) count = 2;
+        state.equalSplit.count = count;
+
+        const baseAmount = Math.floor(grandTotal / count);
+        const remainder = grandTotal % count;
+
+        // Pastikan array participants sinkron dengan count
+        while (state.equalSplit.participants.length < count) {
+            const newIndex = state.equalSplit.participants.length + 1;
+            state.equalSplit.participants.push({
+                id: String(newIndex),
+                name: `Orang ${newIndex}`
+            });
+        }
+        if (state.equalSplit.participants.length > count) {
+            state.equalSplit.participants = state.equalSplit.participants.slice(0, count);
+        }
+
+        return { grandTotal, count, baseAmount, remainder };
+    }
+
+    function renderEqualSplit() {
+        if (!stepEqualSplit) return;
+
+        if (equalRestoName) {
+            equalRestoName.textContent = state.billInfo.restaurant_name || 'Restoran / Kafe';
+        }
+
+        const { grandTotal, count, baseAmount, remainder } = calculateEqualSplitAmounts();
+
+        if (equalGrandTotal) {
+            equalGrandTotal.textContent = formatRupiah(grandTotal);
+        }
+
+        if (equalPerPersonDisplay) {
+            if (remainder === 0) {
+                equalPerPersonDisplay.textContent = formatRupiah(baseAmount);
+            } else {
+                equalPerPersonDisplay.textContent = `${formatRupiah(baseAmount)} - ${formatRupiah(baseAmount + 1)}`;
+            }
+        }
+
+        if (equalRemainderNote) {
+            if (remainder === 0) {
+                equalRemainderNote.innerHTML = `Presisi Rupiah Pas: Semua <strong>${count} orang</strong> membayar tepat <strong>${formatRupiah(baseAmount)}</strong>.`;
+            } else {
+                equalRemainderNote.innerHTML = `Presisi Rupiah Pas: <strong>${remainder} orang</strong> membayar <strong>${formatRupiah(baseAmount + 1)}</strong> dan <strong>${count - remainder} orang</strong> membayar <strong>${formatRupiah(baseAmount)}</strong> (Total tepat <strong>${formatRupiah(grandTotal)}</strong> tanpa selisih).`;
+            }
+        }
+
+        // Render quick chips active status
+        document.querySelectorAll('.quick-chip').forEach(chip => {
+            const chipCount = parseInt(chip.getAttribute('data-count'), 10);
+            chip.classList.toggle('active', chipCount === count);
+        });
+
+        // Render participants list
+        if (equalParticipantsList) {
+            equalParticipantsList.innerHTML = '';
+            state.equalSplit.participants.forEach((p, idx) => {
+                const pAmount = idx < remainder ? (baseAmount + 1) : baseAmount;
+                const row = document.createElement('div');
+                row.className = 'equal-participant-row';
+                row.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:0.5rem;flex:1;min-width:0;">
+                        <span style="font-size:1.15rem;">👤</span>
+                        <input type="text" class="form-control form-control-sm equal-p-name-input" data-index="${idx}" value="${escapeHtml(p.name)}" placeholder="Nama Peserta ${idx + 1}" style="font-weight:600;font-size:0.875rem;max-width:160px;">
+                    </div>
+                    <div style="text-align:right;white-space:nowrap;">
+                        <span style="font-weight:800;font-size:1rem;color:var(--text-main);">${formatRupiah(pAmount)}</span>
+                    </div>
+                `;
+                equalParticipantsList.appendChild(row);
+            });
+
+            equalParticipantsList.querySelectorAll('.equal-p-name-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.index, 10);
+                    const val = e.target.value.trim();
+                    if (state.equalSplit.participants[idx]) {
+                        state.equalSplit.participants[idx].name = val || `Orang ${idx + 1}`;
+                    }
+                });
+            });
+        }
+    }
+
+    if (btnEqualMinus) {
+        btnEqualMinus.addEventListener('click', () => {
+            let current = parseInt(inputEqualCount ? inputEqualCount.value : '2', 10) || 2;
+            if (current > 1) {
+                if (inputEqualCount) inputEqualCount.value = current - 1;
+                renderEqualSplit();
+            }
+        });
+    }
+
+    if (btnEqualPlus) {
+        btnEqualPlus.addEventListener('click', () => {
+            let current = parseInt(inputEqualCount ? inputEqualCount.value : '2', 10) || 2;
+            if (current < 100) {
+                if (inputEqualCount) inputEqualCount.value = current + 1;
+                renderEqualSplit();
+            }
+        });
+    }
+
+    if (inputEqualCount) {
+        inputEqualCount.addEventListener('input', () => {
+            let val = parseInt(inputEqualCount.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > 100) val = 100;
+            renderEqualSplit();
+        });
+    }
+
+    document.querySelectorAll('.quick-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            const count = parseInt(e.currentTarget.getAttribute('data-count'), 10);
+            if (count && inputEqualCount) {
+                inputEqualCount.value = count;
+                renderEqualSplit();
+            }
+        });
+    });
+
+    if (btnEqualBackToOcr) {
+        btnEqualBackToOcr.addEventListener('click', () => {
+            goToStep(2);
+        });
+    }
+
+    if (btnEqualToReview) {
+        btnEqualToReview.addEventListener('click', () => {
+            calculateEqualSplitAmounts();
+            initStepReview();
+            goToStep(4);
+        });
+    }
 
                 showToast("Pemeriksaan struk dibatalkan. Kuota Anda tidak berkurang.", 'info');
             });
@@ -1072,6 +1320,68 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveBtnText = document.getElementById('save-btn-text');
 
     function initStepReview() {
+        if (state.mode === 'bagi-rata') {
+            const { grandTotal, count, baseAmount, remainder } = calculateEqualSplitAmounts();
+            reviewRestoName.textContent = state.billInfo.restaurant_name || 'Restoran / Kafe';
+            reviewGrandTotal.textContent = formatRupiah(grandTotal);
+            reviewPaxCount.textContent = `${count} Orang (Bagi Rata)`;
+            reviewTax.textContent = formatRupiah(state.billInfo.tax);
+            reviewService.textContent = formatRupiah(state.billInfo.service);
+            reviewDiscount.textContent = formatRupiah(state.billInfo.discount);
+
+            reviewParticipantsGrid.innerHTML = '';
+            state.equalSplit.participants.forEach((p, idx) => {
+                const pTotal = idx < remainder ? (baseAmount + 1) : baseAmount;
+                const pTax = count > 0 ? Math.round(state.billInfo.tax / count) : 0;
+                const pService = count > 0 ? Math.round(state.billInfo.service / count) : 0;
+                const pDiscount = count > 0 ? Math.round(state.billInfo.discount / count) : 0;
+                const pSubtotal = pTotal - pTax - pService + pDiscount;
+
+                const card = document.createElement('div');
+                card.className = 'participant-card';
+                card.innerHTML = `
+                    <div>
+                        <div class="participant-name">${escapeHtml(p.name)}</div>
+                        <ul class="participant-items-list">
+                            <li>
+                                <span>1x Porsi Bagi Rata</span>
+                                <span>${formatRupiah(pSubtotal)}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div class="participant-breakdown">
+                            <div class="participant-breakdown-row">
+                                <span>Subtotal:</span>
+                                <span>${formatRupiah(pSubtotal)}</span>
+                            </div>
+                            ${state.billInfo.tax > 0 ? `
+                            <div class="participant-breakdown-row">
+                                <span>Pajak (proporsional):</span>
+                                <span>${formatRupiah(pTax)}</span>
+                            </div>` : ''}
+                            ${state.billInfo.service > 0 ? `
+                            <div class="participant-breakdown-row">
+                                <span>Service Charge:</span>
+                                <span>${formatRupiah(pService)}</span>
+                            </div>` : ''}
+                            ${state.billInfo.discount > 0 ? `
+                            <div class="participant-breakdown-row">
+                                <span>Diskon:</span>
+                                <span>-${formatRupiah(pDiscount)}</span>
+                            </div>` : ''}
+                        </div>
+                        <div class="participant-total-highlight">
+                            <span style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Total Bayar</span>
+                            <span>${formatRupiah(pTotal)}</span>
+                        </div>
+                    </div>
+                `;
+                reviewParticipantsGrid.appendChild(card);
+            });
+            return;
+        }
+
         reviewRestoName.textContent = state.billInfo.restaurant_name;
         reviewGrandTotal.textContent = formatRupiah(state.billInfo.grand_total);
         reviewPaxCount.textContent = `${state.participants.length} Orang`;
@@ -1169,7 +1479,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            const payload = {
+            const payload = state.mode === 'bagi-rata' ? {
+                split_mode: 'equal',
+                participant_count: state.equalSplit.count,
+                participant_names: state.equalSplit.participants.map(p => p.name),
+                bill_info: state.billInfo,
+                items: state.items,
+            } : {
+                split_mode: 'itemized',
                 bill_info: state.billInfo,
                 items: state.items,
                 participants: state.participants,

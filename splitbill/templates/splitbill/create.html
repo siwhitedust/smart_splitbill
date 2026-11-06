@@ -19,7 +19,7 @@
         <div class="stepper-divider"></div>
         <div class="stepper-item" data-step="3">
             <span class="stepper-number">3</span>
-            <span class="stepper-label">Bagi Pesanan</span>
+            <span id="stepper-label-step3" class="stepper-label">Jumlah Orang</span>
         </div>
         <div class="stepper-divider"></div>
         <div class="stepper-item" data-step="4">
@@ -251,7 +251,7 @@
                     <span>Batalkan</span>
                 </button>
                 <button type="button" id="btn-proceed-to-split" class="btn btn-primary btn-lg">
-                    <span>Lanjutkan ke Pembagian Pesanan</span>
+                    <span id="btn-proceed-split-text">Lanjutkan ke Jumlah Orang</span>
                     <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
                     </svg>
@@ -261,7 +261,99 @@
     </div>
 
     <!-- ========================================================
-         STEP 3: MENU PEMBAGIAN PESANAN PER ORANG
+         STEP 3 (BAGI RATA): TENTUKAN JUMLAH ORANG
+         ======================================================== -->
+    <div id="step-equal-split" class="step-container">
+        <div class="glass-panel step-panel">
+            <div style="text-align: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                <h2 style="font-size: 1.45rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.35rem;">
+                    Berapa Orang yang Bagi Rata?
+                </h2>
+                <p style="font-size: 0.875rem; color: var(--text-muted); max-width: 500px; margin: 0 auto;">
+                    Tentukan jumlah orang yang akan membagi rata total tagihan secara presisi hingga ke Rupiah pas.
+                </p>
+            </div>
+
+            <!-- Ringkasan Singkat Tagihan -->
+            <div style="background: var(--card-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Tempat Makan / Restoran</span>
+                    <div id="equal-resto-name" style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">Restoran</div>
+                </div>
+                <div style="text-align: right;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Total Tagihan Struk:</span>
+                    <div id="equal-grand-total" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">Rp0</div>
+                </div>
+            </div>
+
+            <!-- Counter Pemilih Jumlah Orang -->
+            <div style="text-align: center; margin-bottom: 1.75rem;">
+                <label style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 0.5rem;">
+                    Jumlah Orang (Peserta Patungan)
+                </label>
+                <div class="equal-counter-wrapper">
+                    <button type="button" id="btn-equal-minus" class="counter-btn" title="Kurangi orang" aria-label="Kurangi jumlah orang">−</button>
+                    <input type="number" id="input-equal-count" min="1" max="100" value="2" class="form-control" style="width: 90px; text-align: center; font-size: 1.5rem; font-weight: 800; padding: 0.5rem;" aria-label="Jumlah orang">
+                    <button type="button" id="btn-equal-plus" class="counter-btn" title="Tambah orang" aria-label="Tambah jumlah orang">+</button>
+                </div>
+
+                <!-- Quick Selection Chips -->
+                <div class="quick-chips-wrapper">
+                    <button type="button" class="quick-chip active" data-count="2">2 Orang</button>
+                    <button type="button" class="quick-chip" data-count="3">3 Orang</button>
+                    <button type="button" class="quick-chip" data-count="4">4 Orang</button>
+                    <button type="button" class="quick-chip" data-count="5">5 Orang</button>
+                    <button type="button" class="quick-chip" data-count="6">6 Orang</button>
+                    <button type="button" class="quick-chip" data-count="8">8 Orang</button>
+                    <button type="button" class="quick-chip" data-count="10">10 Orang</button>
+                </div>
+            </div>
+
+            <!-- Live Equal Result Highlight Box -->
+            <div class="equal-live-box">
+                <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">
+                    Masing-Masing Membayar
+                </span>
+                <div id="equal-per-person-display" style="font-size: 2.25rem; font-weight: 800; color: var(--btn-primary-bg); line-height: 1.1;">
+                    Rp0
+                </div>
+                <div id="equal-remainder-note" style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.5rem;">
+                    Presisi Rupiah Pas (Total tepat sesuai struk tanpa selisih)
+                </div>
+            </div>
+
+            <!-- Daftar Nama Peserta yang Ter-generate -->
+            <div style="margin-top: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <label style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 0;">
+                        Daftar Nama Peserta (Opsional diubah)
+                    </label>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">
+                        Klik untuk ubah nama
+                    </span>
+                </div>
+                <div id="equal-participants-list" class="equal-participants-grid">
+                    <!-- Di-render oleh JavaScript -->
+                </div>
+            </div>
+
+            <!-- Navigasi Bawah Step 3 Equal -->
+            <div class="step-nav-bottom" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--glass-border); padding-top: 1.25rem; margin-top: 2rem; flex-wrap: wrap; gap: 0.75rem;">
+                <button type="button" id="btn-equal-back-to-ocr" class="btn btn-secondary btn-sm">
+                    &larr; Kembali Edit Menu Struk
+                </button>
+                <button type="button" id="btn-equal-to-review" class="btn btn-primary btn-lg">
+                    <span>Lanjut ke Review &amp; Simpan</span>
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         STEP 3 (SENDIRI-SENDIRI): MENU PEMBAGIAN PESANAN PER ORANG
          ======================================================== -->
     <div id="step-split" class="step-container">
         <div class="glass-panel step-panel">
@@ -528,6 +620,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{% static 'splitbill/js/splitbill.js' %}?v=4.4"></script>
+<script src="{% static 'splitbill/js/splitbill.js' %}?v=4.6"></script>
 {% endblock %}
 

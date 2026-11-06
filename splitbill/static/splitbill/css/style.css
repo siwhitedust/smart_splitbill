@@ -1724,3 +1724,158 @@ main {
     }
 }
 
+/* ==========================================================================
+   MODE SELECTION (BAGI RATA VS SENDIRI-SENDIRI)
+   ========================================================================== */
+
+/* Hero Mode Choice Buttons */
+.hero-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 1rem;
+    max-width: 580px;
+    margin: 1.5rem auto 0;
+}
+
+@media (max-width: 580px) {
+    .hero-mode-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.hero-mode-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-lg);
+    text-decoration: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(30, 41, 59, 0.9) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: 0 4px 20px -2px rgba(56, 189, 248, 0.2);
+    cursor: pointer;
+    text-align: left;
+}
+
+.hero-mode-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-dark);
+    box-shadow: 0 8px 25px -4px rgba(56, 189, 248, 0.35);
+}
+
+.hero-mode-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+}
+
+.hero-mode-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.25;
+}
+
+.hero-mode-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+    line-height: 1.3;
+}
+
+/* Equal Split Step 3 Elements */
+.equal-counter-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+}
+
+.counter-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    background: var(--card-bg-subtle);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.counter-btn:hover:not(:disabled) {
+    background: var(--btn-secondary-hover);
+    border-color: var(--accent-dark);
+}
+
+.counter-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.quick-chips-wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.quick-chip {
+    padding: 0.35rem 0.85rem;
+    font-size: 0.825rem;
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    background: var(--accent-subtle);
+    border: 1px solid var(--accent-border);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.quick-chip:hover,
+.quick-chip.active {
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+    border-color: transparent;
+}
+
+.equal-live-box {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(30, 41, 59, 0.6) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.equal-participants-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.equal-participant-row {
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+

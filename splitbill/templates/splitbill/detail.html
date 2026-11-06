@@ -9,9 +9,20 @@
     <div class="glass-panel step-panel" style="margin-bottom: 2rem;">
         <div class="bill-detail-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem;">
             <div>
-                <span class="badge" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; background: var(--accent-subtle); color: var(--text-muted); padding: 0.25rem 0.5rem; border-radius: 4px; letter-spacing: 0.05em;">
-                    Rincian Pembagian Tagihan
-                </span>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <span class="badge" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; background: var(--accent-subtle); color: var(--text-muted); padding: 0.25rem 0.5rem; border-radius: 4px; letter-spacing: 0.05em;">
+                        Rincian Pembagian Tagihan
+                    </span>
+                    {% if bill.split_mode == 'equal' %}
+                    <span class="badge" style="font-size: 0.75rem; font-weight: 700; background: var(--btn-primary-bg); color: var(--btn-primary-text); padding: 0.25rem 0.55rem; border-radius: 4px;">
+                        ⚖️ Mode: Bagi Rata
+                    </span>
+                    {% else %}
+                    <span class="badge" style="font-size: 0.75rem; font-weight: 700; background: var(--accent-subtle); color: var(--accent-dark); border: 1px solid var(--accent-border); padding: 0.25rem 0.55rem; border-radius: 4px;">
+                        👤 Mode: Sendiri-sendiri
+                    </span>
+                    {% endif %}
+                </div>
                 <h1 style="font-size: 1.85rem; font-weight: 800; letter-spacing: -0.02em; margin-top: 0.35rem; color: var(--text-main);">
                     {{ bill.restaurant_name }}
                 </h1>

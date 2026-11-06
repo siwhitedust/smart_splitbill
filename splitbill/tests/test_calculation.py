@@ -183,3 +183,51 @@ class CalculationServiceTest(SimpleTestCase):
         self.assertFalse(is_valid)
         self.assertEqual(len(unallocated), 2)  # Sate Ayam sisa 1, Lontong sisa 2
 
+    def test_equal_split_even_division(self):
+        """Uji mode bagi rata pembagian pas habis tanpa sisa."""
+        bill_info = {
+            'restaurant_name': 'Bakso Super Enak',
+            'grand_total': '120000',
+            'tax': '10000',
+            'service': '5000',
+            'discount': '0',
+            'other_fees': '0',
+        }
+        res = calculation_service.calculate_equal_split(bill_info, participant_count=3)
+        self.assertEqual(res['split_mode'], 'equal')
+        self.assertEqual(res['participant_count'], 3)
+        self.assertEqual(res['grand_total'], '120000')
+        self.assertEqual(res['total_participants_sum'], '120000')
+
+        # Masing-masing harus tepat 40.000
+        for p in res['participants']:
+            self.assertEqual(p['total'], '40000')
+            self.assertEqual(p['total_formatted'], 'Rp40.000')
+
+    def test_equal_split_odd_remainder_precision(self):
+        """
+        Uji mode bagi rata dengan sisa pembagian ganjil (Rp100.000 dibagi 3 orang).
+        Verifikasi presisi Rupiah pas: 1 orang Rp33.334, 2 orang Rp33.333,
+        dan total seluruh peserta persis Rp100.000.
+        """
+        bill_info = {
+            'restaurant_name': 'Cafe Hangout',
+            'grand_total': '100000',
+            'tax': '0',
+            'service': '0',
+            'discount': '0',
+            'other_fees': '0',
+        }
+        names = ['Andi', 'Budi', 'Caca']
+        res = calculation_service.calculate_equal_split(bill_info, participant_count=3, participant_names=names)
+        self.assertEqual(res['split_mode'], 'equal')
+        self.assertEqual(res['participant_count'], 3)
+        self.assertEqual(res['total_participants_sum'], '100000')
+
+        p_totals = [Decimal(p['total']) for p in res['participants']]
+        self.assertEqual(sum(p_totals), Decimal('100000'))
+        self.assertEqual(res['participants'][0]['name'], 'Andi')
+        self.assertEqual(res['participants'][0]['total'], '33334')
+        self.assertEqual(res['participants'][1]['total'], '33333')
+        self.assertEqual(res['participants'][2]['total'], '33333')
+
