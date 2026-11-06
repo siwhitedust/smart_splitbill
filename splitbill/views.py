@@ -34,11 +34,7 @@ def index(request):
     """
     active_bills = bill_cache_service.get_user_active_bills(request.session)
     is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
-    if is_admin:
-        is_allowed = True
-        remaining_quota = 'Unlimited'
-    else:
-        is_allowed, used_count, remaining_quota = rate_limiter.get_status(request)
+    is_allowed, used_count, remaining_quota = rate_limiter.get_status(request)
 
     context = {
         'active_bills': active_bills,
@@ -58,11 +54,9 @@ def create_bill(request):
     Menyediakan interface wizard: Upload Struk -> Form OCR -> Pembagian Peserta -> Review -> Simpan.
     """
     is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
+    is_allowed, used_count, remaining_quota = rate_limiter.get_status(request)
     if is_admin:
         is_allowed = True
-        remaining_quota = 'Unlimited'
-    else:
-        is_allowed, used_count, remaining_quota = rate_limiter.get_status(request)
 
     context = {
         'remaining_quota': remaining_quota,
@@ -86,8 +80,8 @@ def process_ocr_api(request):
     # 1. Periksa Kuota OCR Personal (Rate Limiter IP)
     is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
     client_ip = get_client_ip(request)
+    is_allowed, current_count, remaining = rate_limiter.get_status(request)
     if not is_admin:
-        is_allowed, current_count, remaining = rate_limiter.get_status(request)
         if not is_allowed:
             activity_log_service.log(
                 action="OCR Struk",
@@ -100,8 +94,6 @@ def process_ocr_api(request):
                 'message': 'kuota 1 hari sudah habis see you besok',
                 'remaining_quota': 0,
             }, status=429)
-    else:
-        remaining = 'Unlimited'
 
     # 2. Periksa Keberadaan & Validasi File
     if 'receipt_image' not in request.FILES:
@@ -280,7 +272,8 @@ def save_bill_api(request):
     # Konsumsi 1 kuota pemrosesan saat tagihan final berhasil disimpan
     client_ip = get_client_ip(request)
     if is_admin:
-        new_remaining = 'Unlimited'
+        # Admin tidak memakan kuota IP asli (tetap unlimited), tetapi angka tetap disamarkan
+        _, _, new_remaining = rate_limiter.get_status(request)
     else:
         allowed, new_remaining, _ = rate_limiter.consume_quota(request)
 

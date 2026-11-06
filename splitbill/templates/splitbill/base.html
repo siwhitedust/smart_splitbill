@@ -59,19 +59,12 @@
                     </svg>
                 </button>
 
-                {% if user.is_authenticated %}
-                <div class="quota-badge admin-badge" title="Mode Pengembang / Admin Aktif (Unlimited OCR)">
-                    <span class="quota-indicator" style="background:#10b981; box-shadow:0 0 8px #10b981;"></span>
-                    <span class="quota-label">Admin: </span><strong>Unlimited</strong>
-                </div>
-                {% else %}
                 {% if remaining_quota is not None %}
                 <div class="quota-badge" title="Kuota pemindaian struk harian yang tersisa">
                     <span
                         class="quota-indicator {% if remaining_quota == 0 or remaining_quota == '0' %}empty{% elif remaining_quota <= 2 %}low{% endif %}"></span>
-                    <span class="quota-label">Kuota: </span><strong>{% if remaining_quota == 'Unlimited' %}Unlimited{% elif remaining_quota == 0 or remaining_quota == '0' %}0{% elif remaining_quota %}{{ remaining_quota }}/{{ daily_limit|default:5 }}{% else %}0{% endif %}</strong>
+                    <span class="quota-label">Kuota: </span><strong>{% if remaining_quota == 0 or remaining_quota == '0' %}0{% elif remaining_quota %}{{ remaining_quota }}/{{ daily_limit|default:5 }}{% else %}0{% endif %}</strong>
                 </div>
-                {% endif %}
                 {% endif %}
 
                 {% block nav_action %}

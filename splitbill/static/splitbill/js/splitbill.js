@@ -71,18 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!quotaBadgeEl) return;
 
-        // Jika mode admin atau remaining adalah 'Unlimited'
-        if (remainingQuota === 'Unlimited' || (badgeContainer && badgeContainer.classList.contains('admin-badge'))) {
-            quotaBadgeEl.textContent = 'Unlimited';
-            if (quotaIndicator) {
-                quotaIndicator.className = 'quota-indicator';
-                quotaIndicator.style.background = '#10b981';
-                quotaIndicator.style.boxShadow = '0 0 8px #10b981';
-            }
-            return;
+        // Samarkan tampilan kuota agar selalu berformat 5/5
+        if (remainingQuota === 'Unlimited') {
+            remainingQuota = 5;
         }
 
-        // Untuk user biasa
         if (remainingQuota === 0 || remainingQuota === '0' || remainingQuota === 'Habis' || !remainingQuota) {
             quotaBadgeEl.textContent = '0';
             if (quotaIndicator) quotaIndicator.className = 'quota-indicator empty';

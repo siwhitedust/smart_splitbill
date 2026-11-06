@@ -270,11 +270,13 @@ class ViewsAndSecurityTest(TestCase):
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['user']['username'], 'admin')
 
-        # 2. Halaman dashboard & create menampilkan status Unlimited untuk admin
+        # 2. Halaman beranda menyamarkan kuota (5/5) dan menyembunyikan identitas Admin
         resp_index = self.client.get('/')
         self.assertEqual(resp_index.status_code, 200)
-        self.assertEqual(resp_index.context['remaining_quota'], 'Unlimited')
+        self.assertEqual(resp_index.context['remaining_quota'], 5)
         self.assertTrue(resp_index.context['is_admin'])
+        self.assertNotContains(resp_index, 'Admin: Unlimited')
+        self.assertContains(resp_index, 'Kuota:')
 
         # 3. Admin dapat mereset kuota via /api/admin/reset-kuota/
         resp_reset = self.client.post('/api/admin/reset-kuota/')
@@ -284,9 +286,9 @@ class ViewsAndSecurityTest(TestCase):
         resp_logout = self.client.post('/api/logout/')
         self.assertEqual(resp_logout.status_code, 200)
 
-        # 5. Setelah logout, kuota kembali ke angka rate limiter biasa
+        # 5. Setelah logout, kuota tetap berjalan normal
         resp_index_after = self.client.get('/')
-        self.assertNotEqual(resp_index_after.context['remaining_quota'], 'Unlimited')
+        self.assertFalse(resp_index_after.context['is_admin'])
 
     def test_admin_login_wrong_password_fails(self):
         """Login dengan password salah ditolak dengan HTTP 401."""
@@ -366,11 +368,13 @@ class ViewsAndSecurityTest(TestCase):
         self.assertContains(resp, 'Log Sederhana Aktivitas Pengguna')
         self.assertTemplateUsed(resp, 'splitbill/admin_dashboard.html')
 
-        # Sesi sekarang terotentikasi sebagai admin sehingga kuota menjadi Unlimited
+        # Sesi sekarang terotentikasi sebagai admin namun tampilan publik disamarkan
         resp_index = self.client.get('/')
         self.assertEqual(resp_index.status_code, 200)
-        self.assertEqual(resp_index.context['remaining_quota'], 'Unlimited')
+        self.assertEqual(resp_index.context['remaining_quota'], 5)
         self.assertTrue(resp_index.context['is_admin'])
+        self.assertNotContains(resp_index, 'Admin: Unlimited')
+        self.assertContains(resp_index, 'Kuota:')
 
     def test_admin_dashboard_access_granted_for_admin(self):
         """Admin yang login dapat mengakses URL admin spesial dengan status 200."""
