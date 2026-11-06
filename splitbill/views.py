@@ -42,6 +42,7 @@ def index(request):
         'remaining_quota': remaining_quota,
         'daily_limit': rate_limiter.daily_limit,
         'is_admin': is_admin,
+        'is_admin_page': False,
     }
     return render(request, 'splitbill/index.html', context)
 
@@ -63,6 +64,7 @@ def create_bill(request):
         'daily_limit': rate_limiter.daily_limit,
         'is_ocr_allowed': is_allowed,
         'is_admin': is_admin,
+        'is_admin_page': False,
     }
     return render(request, 'splitbill/create.html', context)
 
@@ -80,8 +82,8 @@ def process_ocr_api(request):
     # 1. Periksa Kuota OCR Personal (Rate Limiter IP)
     is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
     client_ip = get_client_ip(request)
-    is_allowed, current_count, remaining = rate_limiter.get_status(request)
     if not is_admin:
+        is_allowed, current_count, remaining = rate_limiter.get_status(request)
         if not is_allowed:
             activity_log_service.log(
                 action="OCR Struk",
@@ -94,6 +96,8 @@ def process_ocr_api(request):
                 'message': 'kuota 1 hari sudah habis see you besok',
                 'remaining_quota': 0,
             }, status=429)
+    else:
+        remaining = 'Unlimited'
 
     # 2. Periksa Keberadaan & Validasi File
     if 'receipt_image' not in request.FILES:
@@ -272,8 +276,7 @@ def save_bill_api(request):
     # Konsumsi 1 kuota pemrosesan saat tagihan final berhasil disimpan
     client_ip = get_client_ip(request)
     if is_admin:
-        # Admin tidak memakan kuota IP asli (tetap unlimited), tetapi angka tetap disamarkan
-        _, _, new_remaining = rate_limiter.get_status(request)
+        new_remaining = 'Unlimited'
     else:
         allowed, new_remaining, _ = rate_limiter.consume_quota(request)
 
@@ -498,6 +501,7 @@ def admin_dashboard(request):
         'daily_limit': rate_limiter.daily_limit,
         'remaining_quota': 'Unlimited',
         'is_admin': True,
+        'is_admin_page': True,
     }
     return render(request, 'splitbill/admin_dashboard.html', context)
 

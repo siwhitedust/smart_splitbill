@@ -71,18 +71,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!quotaBadgeEl) return;
 
-        // Samarkan tampilan kuota agar selalu berformat 5/5
-        if (remainingQuota === 'Unlimited') {
-            remainingQuota = 5;
+        // Hanya jika badge container memang admin-badge (khusus di halaman panel admin)
+        if (badgeContainer && badgeContainer.classList.contains('admin-badge')) {
+            quotaBadgeEl.textContent = 'Unlimited';
+            if (quotaIndicator) {
+                quotaIndicator.className = 'quota-indicator';
+                quotaIndicator.style.background = '#10b981';
+                quotaIndicator.style.boxShadow = '0 0 8px #10b981';
+            }
+            return;
         }
 
+        // Untuk halaman biasa: selalu format sebagai angka kuota biasa (misal 5/5)
         if (remainingQuota === 0 || remainingQuota === '0' || remainingQuota === 'Habis' || !remainingQuota) {
             quotaBadgeEl.textContent = '0';
             if (quotaIndicator) quotaIndicator.className = 'quota-indicator empty';
         } else {
-            quotaBadgeEl.textContent = `${remainingQuota}/5`;
+            const num = (remainingQuota === 'Unlimited') ? 5 : remainingQuota;
+            quotaBadgeEl.textContent = `${num}/5`;
             if (quotaIndicator) {
-                if (Number(remainingQuota) <= 2) {
+                if (Number(num) <= 2) {
                     quotaIndicator.className = 'quota-indicator low';
                 } else {
                     quotaIndicator.className = 'quota-indicator';

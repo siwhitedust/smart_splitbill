@@ -270,7 +270,7 @@ class ViewsAndSecurityTest(TestCase):
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['user']['username'], 'admin')
 
-        # 2. Halaman beranda menyamarkan kuota (5/5) dan menyembunyikan identitas Admin
+        # 2. Halaman beranda biasa (URL biasa) tetap menampilkan kuota biasa (5/5) dan tidak menampilkan Admin: Unlimited
         resp_index = self.client.get('/')
         self.assertEqual(resp_index.status_code, 200)
         self.assertEqual(resp_index.context['remaining_quota'], 5)
@@ -366,14 +366,15 @@ class ViewsAndSecurityTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Dashboard Khusus Admin')
         self.assertContains(resp, 'Log Sederhana Aktivitas Pengguna')
+        self.assertContains(resp, 'Admin:')
+        self.assertContains(resp, 'Unlimited')
         self.assertTemplateUsed(resp, 'splitbill/admin_dashboard.html')
 
-        # Sesi sekarang terotentikasi sebagai admin namun tampilan publik disamarkan
+        # Di URL biasa (halaman beranda), badge Admin: Unlimited TIDAK ngikut (tetap tampil Kuota biasa)
         resp_index = self.client.get('/')
         self.assertEqual(resp_index.status_code, 200)
         self.assertEqual(resp_index.context['remaining_quota'], 5)
-        self.assertTrue(resp_index.context['is_admin'])
-        self.assertNotContains(resp_index, 'Admin: Unlimited')
+        self.assertNotContains(resp_index, 'Admin: ')
         self.assertContains(resp_index, 'Kuota:')
 
     def test_admin_dashboard_access_granted_for_admin(self):
