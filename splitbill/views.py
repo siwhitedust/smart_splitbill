@@ -462,7 +462,7 @@ def admin_dashboard(request):
     Halaman Dashboard Khusus Admin:
     - Membuka URL rahasia ini otomatis mengotentikasi sesi sebagai admin
     - Menampilkan ringkasan statistik
-    - Menampilkan 50 log aktivitas sederhana pengguna dari Memory Cache
+    - Menampilkan 50 log aktivitas sederhana pengguna dari Database SQLite
     - Kontrol reset seluruh kuota pengguna atau reset per IP pengguna
     """
     is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
@@ -584,7 +584,7 @@ def admin_reset_user_quota_api(request):
 @require_POST
 def admin_clear_logs_api(request):
     """
-    API Membersihkan Seluruh Log Aktivitas dari Memory Cache.
+    API Membersihkan Seluruh Log Aktivitas dari Database SQLite.
     Khusus akun Admin.
     """
     if not (request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')):
@@ -596,5 +596,5 @@ def admin_clear_logs_api(request):
     activity_log_service.clear_logs()
     return JsonResponse({
         'status': 'success',
-        'message': 'Seluruh log aktivitas di memory cache berhasil dibersihkan.',
+        'message': 'Seluruh log aktivitas di database SQLite berhasil dibersihkan.',
     })

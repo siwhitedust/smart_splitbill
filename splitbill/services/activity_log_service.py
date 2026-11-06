@@ -1,22 +1,20 @@
 """
-Service Logging Aktivitas Pengguna Berbasis Memory Cache.
-Menyimpan hingga 50 aktivitas terbaru di cache tanpa memerlukan tabel database baru.
+Service Logging Aktivitas Pengguna Berbasis Database SQLite.
+Menyimpan dan mengelola hingga 50 aktivitas terbaru di database SQLite.
+Setiap ada log baru ke-51, data paling lama otomatis dipangkas (dihapus).
 """
 
-import time
 from typing import List, Dict, Any, Optional
-from django.core.cache import cache
-from splitbill.utils import get_jakarta_now
+from django.db import transaction
+from splitbill.models import ActivityLog
 
-CACHE_KEY_ACTIVITY_LOGS = "splitbill:activity_logs"
 MAX_LOG_ENTRIES = 50
-LOG_TTL_SECONDS = 86400 * 7  # Simpan selama 7 hari di cache
 
 
 class ActivityLogService:
     """
     Mengelola pencatatan log aktivitas pemrosesan struk, pembagian tagihan,
-    dan aksi admin di dalam memory cache.
+    dan aksi admin di dalam database SQLite lokal.
     """
 
     def log(
@@ -28,57 +26,60 @@ class ActivityLogService:
         user_identifier: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Mencatat satu entri log aktivitas baru ke memory cache.
-        Menjaga maksimal 50 log terakhir (antrean FIFO, urutan terbaru di atas).
+        Mencatat satu entri log aktivitas baru ke database SQLite.
+        Menjaga maksimal 50 log terakhir (data ke-51 dan seterusnya otomatis dihapus).
         """
-        now = get_jakarta_now()
-        entry: Dict[str, Any] = {
-            "id": int(time.time() * 1000),
-            "timestamp": now.strftime("%d/%m/%Y %H:%M:%S WIB"),
-            "action": action,
-            "ip": ip or "127.0.0.1",
-            "details": details,
-            "status": status,  # 'success', 'warning', 'error'
-        }
-
+        clean_ip = ip or "127.0.0.1"
         try:
-            logs: List[Dict[str, Any]] = cache.get(CACHE_KEY_ACTIVITY_LOGS, [])
-            if not isinstance(logs, list):
-                logs = []
+            with transaction.atomic():
+                entry = ActivityLog.objects.create(
+                    action=action,
+                    ip=clean_ip,
+                    details=details,
+                    status=status,
+                )
 
-            # Sisipkan ke awal list (terbaru paling atas)
-            logs.insert(0, entry)
-            if len(logs) > MAX_LOG_ENTRIES:
-                logs = logs[:MAX_LOG_ENTRIES]
+                # Pruning otomatis: jika total entri melebihi MAX_LOG_ENTRIES, hapus yang terlama
+                excess_ids = list(
+                    ActivityLog.objects.order_by('-created_at', '-id')[MAX_LOG_ENTRIES:]
+                    .values_list('id', flat=True)
+                )
+                if excess_ids:
+                    ActivityLog.objects.filter(id__in=excess_ids).delete()
 
-            cache.set(CACHE_KEY_ACTIVITY_LOGS, logs, timeout=LOG_TTL_SECONDS)
+            return entry.to_dict()
         except Exception:
-            pass
-
-        return entry
+            # Fallback jika terjadi error database tak terduga
+            from splitbill.utils import get_jakarta_now
+            now = get_jakarta_now()
+            return {
+                "id": 0,
+                "timestamp": now.strftime("%d/%m/%Y %H:%M:%S WIB"),
+                "action": action,
+                "ip": clean_ip,
+                "details": details,
+                "status": status,
+            }
 
     def get_logs(self, limit: int = 50) -> List[Dict[str, Any]]:
         """
-        Mengambil daftar log aktivitas terbaru dari cache.
+        Mengambil daftar log aktivitas terbaru dari database SQLite.
         """
         try:
-            logs = cache.get(CACHE_KEY_ACTIVITY_LOGS, [])
-            if not isinstance(logs, list):
-                return []
-            return logs[:limit]
+            qs = ActivityLog.objects.order_by('-created_at', '-id')[:limit]
+            return [item.to_dict() for item in qs]
         except Exception:
             return []
 
     def clear_logs(self) -> bool:
         """
-        Membersihkan seluruh log aktivitas dari cache.
+        Membersihkan seluruh log aktivitas dari database SQLite.
         """
         try:
-            cache.delete(CACHE_KEY_ACTIVITY_LOGS)
+            ActivityLog.objects.all().delete()
             return True
         except Exception:
             return False
 
 
 activity_log_service = ActivityLogService()
-

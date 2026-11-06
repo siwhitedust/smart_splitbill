@@ -5,7 +5,7 @@ Unit test untuk rate limiter harian analisis struk OCR:
 - Pesan kuota habis yang informatif
 """
 
-from django.test import SimpleTestCase, RequestFactory
+from django.test import SimpleTestCase, TestCase, RequestFactory
 from django.core.cache import cache
 from django.contrib.sessions.middleware import SessionMiddleware
 from splitbill.services.rate_limiter import RateLimiterService
@@ -138,7 +138,7 @@ class RateLimiterTest(SimpleTestCase):
         self.assertEqual(rem2, 5)
 
 
-class ActivityLogServiceTest(SimpleTestCase):
+class ActivityLogServiceTest(TestCase):
     def setUp(self):
         from splitbill.services.activity_log_service import activity_log_service
         self.log_service = activity_log_service
