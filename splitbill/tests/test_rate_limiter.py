@@ -103,3 +103,75 @@ class RateLimiterTest(SimpleTestCase):
         self.assertFalse(allowed)
         self.assertEqual(rem, 0)
 
+    def test_reset_quota_by_ip(self):
+        """Mereset kuota untuk IP tertentu mengembalikan kuota IP tersebut ke 5."""
+        req = self._create_mock_request(ip='192.168.1.88')
+        for _ in range(5):
+            self.limiter.consume_quota(req)
+
+        # Cek kuota habis
+        _, used, rem = self.limiter.get_status_for_ip('192.168.1.88')
+        self.assertEqual(used, 5)
+        self.assertEqual(rem, 0)
+
+        # Reset kuota IP ini
+        self.limiter.reset_quota_by_ip('192.168.1.88')
+
+        # Cek kuota kembali penuh
+        _, used2, rem2 = self.limiter.get_status_for_ip('192.168.1.88')
+        self.assertEqual(used2, 0)
+        self.assertEqual(rem2, 5)
+
+    def test_reset_all_quotas(self):
+        """Mereset seluruh kuota menghapus semua batasan IP yang aktif hari ini."""
+        req1 = self._create_mock_request(ip='10.10.1.1')
+        req2 = self._create_mock_request(ip='10.10.1.2')
+        self.limiter.consume_quota(req1)
+        self.limiter.consume_quota(req2)
+
+        reset_count = self.limiter.reset_all_quotas()
+        self.assertGreaterEqual(reset_count, 2)
+
+        _, used1, rem1 = self.limiter.get_status_for_ip('10.10.1.1')
+        _, used2, rem2 = self.limiter.get_status_for_ip('10.10.1.2')
+        self.assertEqual(rem1, 5)
+        self.assertEqual(rem2, 5)
+
+
+class ActivityLogServiceTest(SimpleTestCase):
+    def setUp(self):
+        from splitbill.services.activity_log_service import activity_log_service
+        self.log_service = activity_log_service
+        self.log_service.clear_logs()
+
+    def tearDown(self):
+        self.log_service.clear_logs()
+
+    def test_log_and_retrieve_entries(self):
+        """Log aktivitas dicatat di cache dan dapat diambil kembali dengan urutan FIFO (terbaru di atas)."""
+        self.log_service.log(action="OCR Struk", ip="192.168.1.5", details="Resto Padang", status="success")
+        self.log_service.log(action="Simpan Splitbill", ip="192.168.1.6", details="Grand Total 50k", status="success")
+
+        logs = self.log_service.get_logs(limit=10)
+        self.assertEqual(len(logs), 2)
+        # Urutan terbaru paling atas
+        self.assertEqual(logs[0]['action'], "Simpan Splitbill")
+        self.assertEqual(logs[1]['action'], "OCR Struk")
+
+    def test_log_service_max_limit_50(self):
+        """Log dibatasi maksimal 50 entri terbaru."""
+        for i in range(60):
+            self.log_service.log(action=f"Aksi {i}", ip="127.0.0.1", details=f"Detail {i}")
+
+        logs = self.log_service.get_logs(limit=100)
+        self.assertEqual(len(logs), 50)
+        self.assertEqual(logs[0]['action'], "Aksi 59")
+
+    def test_clear_logs(self):
+        """Membersihkan seluruh log di cache."""
+        self.log_service.log(action="Test", ip="127.0.0.1")
+        self.assertEqual(len(self.log_service.get_logs()), 1)
+
+        self.log_service.clear_logs()
+        self.assertEqual(len(self.log_service.get_logs()), 0)
+

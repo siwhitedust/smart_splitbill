@@ -15,10 +15,11 @@ from splitbill.services import (
     bill_cache_service,
     ocr_receipt_service,
     calculation_service,
-    rate_limiter
+    rate_limiter,
+    activity_log_service,
 )
 from splitbill.validators import validate_receipt_file, validate_bill_submission
-from splitbill.utils import format_rupiah
+from splitbill.utils import format_rupiah, get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +85,16 @@ def process_ocr_api(request):
     """
     # 1. Periksa Kuota OCR Personal (Rate Limiter IP)
     is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
+    client_ip = get_client_ip(request)
     if not is_admin:
         is_allowed, current_count, remaining = rate_limiter.get_status(request)
         if not is_allowed:
+            activity_log_service.log(
+                action="OCR Struk",
+                ip=client_ip,
+                details="Gagal: Kuota harian pengguna habis (429)",
+                status="warning"
+            )
             return JsonResponse({
                 'status': 'error',
                 'message': 'kuota 1 hari sudah habis see you besok',
@@ -105,6 +113,12 @@ def process_ocr_api(request):
     uploaded_file = request.FILES['receipt_image']
     is_valid, validation_err = validate_receipt_file(uploaded_file)
     if not is_valid:
+        activity_log_service.log(
+            action="OCR Struk",
+            ip=client_ip,
+            details=f"Validasi file gagal: {validation_err}",
+            status="error"
+        )
         return JsonResponse({
             'status': 'error',
             'message': validation_err
@@ -113,6 +127,18 @@ def process_ocr_api(request):
     # 3. Proses OCR dengan Gemini Flash API
     try:
         extracted_data = ocr_receipt_service.process_receipt_image(uploaded_file)
+
+        resto_name = extracted_data.get('restaurant_name') or 'Tanpa Nama'
+        items_count = len(extracted_data.get('items', []))
+        total_str = format_rupiah(extracted_data.get('grand_total', 0), with_prefix=True)
+        model_used = extracted_data.get('model_used', 'Gemini')
+
+        activity_log_service.log(
+            action="OCR Struk",
+            ip=client_ip,
+            details=f"Sukses ({model_used}): {resto_name} ({items_count} menu, {total_str})",
+            status="success"
+        )
 
         # Kuota baru akan dikurangi saat pengguna menyelesaikan dan menyimpan tagihan (Step 4),
         # sehingga jika dibatalkan, refresh, atau keluar di tengah jalan, kuota tetap utuh.
@@ -127,6 +153,12 @@ def process_ocr_api(request):
 
         # Deteksi jika server Google / model AI sedang sibuk (503 / high demand / semua model gagal / timeout > 10 detik)
         if "server sedang sibuk" in err_str or any(k in err_str for k in ["503", "unavailable", "server google sedang sibuk", "high demand", "semua model", "timeout", "timed out", "time out", "deadline"]):
+            activity_log_service.log(
+                action="OCR Struk",
+                ip=client_ip,
+                details="Gagal: Server Google sibuk / Timeout > 10s (503)",
+                status="error"
+            )
             return JsonResponse({
                 'status': 'error',
                 'message': 'server sedang sibuk',
@@ -134,11 +166,24 @@ def process_ocr_api(request):
 
         # Deteksi jika kuota model AI habis (429 / resource exhausted)
         if "kuota 1 hari sudah habis see you besok" in err_str or any(k in err_str for k in ["429", "resource_exhausted", "quota", "kuota"]):
+            activity_log_service.log(
+                action="OCR Struk",
+                ip=client_ip,
+                details="Gagal: Kuota model AI Google habis (429)",
+                status="warning"
+            )
             return JsonResponse({
                 'status': 'error',
                 'message': 'kuota 1 hari sudah habis see you besok',
                 'remaining_quota': 0,
             }, status=429)
+
+        activity_log_service.log(
+            action="OCR Struk",
+            ip=client_ip,
+            details=f"Gagal memproses struk: {str(e)[:100]}",
+            status="error"
+        )
 
         return JsonResponse({
             'status': 'error',
@@ -233,10 +278,21 @@ def save_bill_api(request):
     bill_cache_service.attach_bill_to_session(request.session, token)
 
     # Konsumsi 1 kuota pemrosesan saat tagihan final berhasil disimpan
+    client_ip = get_client_ip(request)
     if is_admin:
         new_remaining = 'Unlimited'
     else:
         allowed, new_remaining, _ = rate_limiter.consume_quota(request)
+
+    mode_label = "Bagi Rata" if calculated_data.get('split_mode') == 'equal' else "Sendiri-sendiri"
+    resto_title = calculated_data.get('restaurant_name') or 'Tagihan Restoran'
+    total_formatted = format_rupiah(calculated_data.get('grand_total', 0), with_prefix=True)
+    activity_log_service.log(
+        action="Simpan Splitbill",
+        ip=client_ip,
+        details=f"Mode {mode_label}: {resto_title} (Token: {token[:8]}..., Total: {total_formatted})",
+        status="success"
+    )
 
     bill_url = f"/tagihan/{token}"
     return JsonResponse({
@@ -340,6 +396,12 @@ def login_api(request):
     user = authenticate(request, username=username, password=password)
     if user is not None:
         login(request, user)
+        activity_log_service.log(
+            action="Login Admin",
+            ip=get_client_ip(request),
+            details=f"Admin '{user.username}' berhasil masuk ke sistem",
+            status="success"
+        )
         return JsonResponse({
             'status': 'success',
             'message': f'Login berhasil! Selamat datang Admin {user.username}.',
@@ -370,7 +432,7 @@ def logout_api(request):
 @require_POST
 def admin_reset_quota_api(request):
     """
-    API Reset Kuota Khusus Admin / Pengembang.
+    API Reset Kuota Khusus Admin / Pengembang (Reset IP saat ini).
     Hanya dapat dieksekusi jika pengguna telah terautentikasi sebagai admin.
     """
     if not (request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')):
@@ -379,9 +441,148 @@ def admin_reset_quota_api(request):
             'message': 'Akses ditolak: Hanya admin yang diizinkan mereset kuota.'
         }, status=403)
 
+    client_ip = get_client_ip(request)
     rate_limiter.reset_quota(request)
+    activity_log_service.log(
+        action="Reset Kuota",
+        ip=client_ip,
+        details="Admin mereset kuota untuk IP saat ini",
+        status="success"
+    )
     return JsonResponse({
         'status': 'success',
         'message': f'Kuota berhasil direset ke {rate_limiter.daily_limit}!',
         'remaining_quota': rate_limiter.daily_limit,
+    })
+
+
+@require_GET
+def admin_dashboard(request):
+    """
+    Halaman Dashboard Khusus Admin:
+    - Menampilkan ringkasan statistik
+    - Menampilkan 50 log aktivitas sederhana pengguna dari Memory Cache
+    - Kontrol reset seluruh kuota pengguna atau reset per IP pengguna
+    """
+    is_admin = request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')
+    if not is_admin:
+        return redirect('/?login=required')
+
+    raw_logs = activity_log_service.get_logs(limit=50)
+
+    # Tambahkan informasi kuota terkini untuk setiap IP di log
+    enriched_logs = []
+    seen_ips = set()
+    for item in raw_logs:
+        log_entry = dict(item)
+        ip = log_entry.get('ip', '')
+        if ip:
+            seen_ips.add(ip)
+            _, used, remaining = rate_limiter.get_status_for_ip(ip)
+            log_entry['used_quota'] = used
+            log_entry['remaining_quota'] = remaining
+        else:
+            log_entry['used_quota'] = 0
+            log_entry['remaining_quota'] = rate_limiter.daily_limit
+        enriched_logs.append(log_entry)
+
+    context = {
+        'logs': enriched_logs,
+        'total_logs': len(enriched_logs),
+        'active_users_count': len(seen_ips),
+        'daily_limit': rate_limiter.daily_limit,
+        'remaining_quota': 'Unlimited',
+        'is_admin': True,
+    }
+    return render(request, 'splitbill/admin_dashboard.html', context)
+
+
+@require_POST
+def admin_reset_all_quota_api(request):
+    """
+    API Reset Seluruh Kuota Pengguna Aktif Hari Ini.
+    Khusus akun Admin.
+    """
+    if not (request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')):
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Akses ditolak: Hanya admin yang diizinkan.'
+        }, status=403)
+
+    count = rate_limiter.reset_all_quotas()
+    client_ip = get_client_ip(request)
+    activity_log_service.log(
+        action="Reset Semua Kuota",
+        ip=client_ip,
+        details=f"Admin mereset seluruh kuota harian pengguna ({count} IP aktif dibersihkan)",
+        status="success"
+    )
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Berhasil mereset seluruh kuota harian ({count} pengguna aktif telah dibersihkan)!',
+        'reset_count': count,
+    })
+
+
+@require_POST
+def admin_reset_user_quota_api(request):
+    """
+    API Reset Kuota Pengguna untuk Satu IP Tertentu.
+    Khusus akun Admin.
+    """
+    if not (request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')):
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Akses ditolak: Hanya admin yang diizinkan.'
+        }, status=403)
+
+    try:
+        if request.content_type == 'application/json':
+            body = json.loads(request.body.decode('utf-8'))
+            target_ip = body.get('ip', '').strip()
+        else:
+            target_ip = request.POST.get('ip', '').strip()
+    except Exception:
+        target_ip = ''
+
+    if not target_ip:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Alamat IP pengguna tidak boleh kosong.'
+        }, status=400)
+
+    rate_limiter.reset_quota_by_ip(target_ip)
+    client_ip = get_client_ip(request)
+    activity_log_service.log(
+        action="Reset Kuota Pengguna",
+        ip=client_ip,
+        details=f"Admin mereset kuota untuk IP {target_ip}",
+        status="success"
+    )
+
+    _, used, remaining = rate_limiter.get_status_for_ip(target_ip)
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Kuota untuk IP {target_ip} berhasil direset ke {rate_limiter.daily_limit}!',
+        'ip': target_ip,
+        'remaining_quota': remaining,
+    })
+
+
+@require_POST
+def admin_clear_logs_api(request):
+    """
+    API Membersihkan Seluruh Log Aktivitas dari Memory Cache.
+    Khusus akun Admin.
+    """
+    if not (request.user.is_authenticated and (request.user.is_staff or request.user.username == 'admin')):
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Akses ditolak: Hanya admin yang diizinkan.'
+        }, status=403)
+
+    activity_log_service.clear_logs()
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Seluruh log aktivitas di memory cache berhasil dibersihkan.',
     })

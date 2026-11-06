@@ -1,0 +1,296 @@
+{% extends 'splitbill/base.html' %}
+{% load static %}
+
+{% block title %}Smart Splitbill{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1100px; padding-top: 1rem; padding-bottom: 3rem;">
+    <!-- Header Dashboard Admin -->
+    <div class="glass-panel" style="padding: 1.75rem 2rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
+                <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px #10b981;"></span>
+                <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #10b981;">Panel Administrator</span>
+            </div>
+            <h1 style="font-size: 1.65rem; font-weight: 800; color: var(--text-main); margin: 0; letter-spacing: -0.02em;">
+                Dashboard Khusus Admin
+            </h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.35rem; margin-bottom: 0;">
+                Pantau log aktivitas pengguna secara real-time dan kelola limit kuota harian OCR.
+            </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+            <button type="button" id="btn-reset-all-quotas" class="btn btn-primary" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);">
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>Reset Semua Kuota Pengguna</span>
+            </button>
+            <button type="button" id="btn-clear-logs" class="btn btn-secondary" title="Bersihkan log di memory cache">
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Bersihkan Log</span>
+            </button>
+            <a href="{% url 'splitbill:index' %}" class="btn btn-secondary" title="Kembali ke Beranda">
+                <span>&larr; Beranda</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistik Ringkas -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <div class="glass-panel" style="padding: 1.25rem 1.5rem;">
+            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Total Log Aktivitas</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #38bdf8; margin-top: 0.35rem;" id="stat-total-logs">{{ total_logs }}</div>
+            <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 0.2rem;">Maksimal 50 log di Memory Cache</div>
+        </div>
+
+        <div class="glass-panel" style="padding: 1.25rem 1.5rem;">
+            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Pengguna Aktif Hari Ini</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #10b981; margin-top: 0.35rem;" id="stat-active-users">{{ active_users_count }}</div>
+            <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 0.2rem;">Berdasarkan Alamat IP unik</div>
+        </div>
+
+        <div class="glass-panel" style="padding: 1.25rem 1.5rem;">
+            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Limit Kuota Harian</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #f59e0b; margin-top: 0.35rem;">{{ daily_limit }}x / Hari</div>
+            <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 0.2rem;">Reset otomatis pkl 00:00 WIB</div>
+        </div>
+    </div>
+
+    <!-- Tabel Log Aktivitas Pengguna -->
+    <div class="glass-panel" style="padding: 1.75rem 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+                <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                    Log Sederhana Aktivitas Pengguna
+                </h2>
+                <p style="font-size: 0.825rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
+                    Catatan aktivitas OCR struk, penyimpanan tagihan, dan aksi sistem (terbaru paling atas).
+                </p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="window.location.reload();" title="Segarkan data">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Segarkan</span>
+            </button>
+        </div>
+
+        <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <table class="table" style="width: 100%; font-size: 0.85rem; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--glass-border); text-align: left; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                        <th style="padding: 0.75rem 0.5rem; width: 150px;">Waktu</th>
+                        <th style="padding: 0.75rem 0.5rem; width: 130px;">Aktivitas</th>
+                        <th style="padding: 0.75rem 0.5rem; width: 120px;">Alamat IP</th>
+                        <th style="padding: 0.75rem 0.5rem;">Rincian</th>
+                        <th style="padding: 0.75rem 0.5rem; width: 110px; text-align: center;">Sisa Kuota</th>
+                        <th style="padding: 0.75rem 0.5rem; width: 90px; text-align: center;">Status</th>
+                        <th style="padding: 0.75rem 0.5rem; width: 100px; text-align: right;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-tbody">
+                    {% for log in logs %}
+                    <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);" data-ip="{{ log.ip }}">
+                        <td style="padding: 0.75rem 0.5rem; color: var(--text-muted); font-family: monospace; font-size: 0.8rem; white-space: nowrap;">
+                            {{ log.timestamp }}
+                        </td>
+                        <td style="padding: 0.75rem 0.5rem; font-weight: 600;">
+                            {% if log.action == 'OCR Struk' %}
+                            <span style="display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.75rem; border: 1px solid rgba(56, 189, 248, 0.3);">
+                                📷 OCR Struk
+                            </span>
+                            {% elif log.action == 'Simpan Splitbill' %}
+                            <span style="display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; background: rgba(168, 85, 247, 0.15); color: #c084fc; font-size: 0.75rem; border: 1px solid rgba(168, 85, 247, 0.3);">
+                                💾 Simpan
+                            </span>
+                            {% elif 'Reset' in log.action %}
+                            <span style="display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; font-size: 0.75rem; border: 1px solid rgba(245, 158, 11, 0.3);">
+                                🔄 {{ log.action }}
+                            </span>
+                            {% elif 'Login' in log.action %}
+                            <span style="display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.75rem; border: 1px solid rgba(16, 185, 129, 0.3);">
+                                🔑 {{ log.action }}
+                            </span>
+                            {% else %}
+                            <span style="display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; background: rgba(255, 255, 255, 0.1); color: var(--text-main); font-size: 0.75rem;">
+                                {{ log.action }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.75rem 0.5rem; font-family: monospace; color: var(--text-main);">
+                            {{ log.ip }}
+                        </td>
+                        <td style="padding: 0.75rem 0.5rem; color: var(--text-muted); line-height: 1.4;">
+                            {{ log.details }}
+                        </td>
+                        <td style="padding: 0.75rem 0.5rem; text-align: center; font-weight: 700;">
+                            {% if log.remaining_quota == 0 %}
+                            <span class="user-quota-val" style="color: #f87171;">🔴 0/5</span>
+                            {% elif log.remaining_quota <= 2 %}
+                            <span class="user-quota-val" style="color: #fbbf24;">🟡 {{ log.remaining_quota }}/5</span>
+                            {% else %}
+                            <span class="user-quota-val" style="color: #34d399;">🟢 {{ log.remaining_quota }}/5</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.75rem 0.5rem; text-align: center;">
+                            {% if log.status == 'success' %}
+                            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;" title="Sukses"></span>
+                            {% elif log.status == 'warning' %}
+                            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;" title="Peringatan (Kuota Habis)"></span>
+                            {% else %}
+                            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444;" title="Error / Timeout"></span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.75rem 0.5rem; text-align: right;">
+                            {% if log.ip and log.ip != '127.0.0.1' or log.remaining_quota < 5 %}
+                            <button type="button" class="btn btn-secondary btn-sm btn-reset-single-ip" data-ip="{{ log.ip }}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Reset kuota IP {{ log.ip }}">
+                                Reset
+                            </button>
+                            {% else %}
+                            <button type="button" class="btn btn-secondary btn-sm btn-reset-single-ip" data-ip="{{ log.ip }}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Reset kuota IP {{ log.ip }}">
+                                Reset
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" style="padding: 3rem 1rem; text-align: center; color: var(--text-muted);">
+                            <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">📋</div>
+                            <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-main);">Belum Ada Log Aktivitas</div>
+                            <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem;">
+                                Seluruh aktivitas pengguna saat membaca struk atau membagi tagihan akan otomatis dicatat di sini.
+                            </p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Tombol Reset Semua Kuota Pengguna
+    const btnResetAll = document.getElementById('btn-reset-all-quotas');
+    if (btnResetAll) {
+        btnResetAll.addEventListener('click', async () => {
+            const confirmed = window.confirm("Apakah Anda yakin ingin mereset kuota harian untuk SELURUH pengguna aktif hari ini?");
+            if (!confirmed) return;
+
+            btnResetAll.disabled = true;
+            btnResetAll.innerHTML = "<span>Mereset...</span>";
+
+            try {
+                const resp = await fetch('/api/admin/reset-all-quota/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                });
+                const res = await resp.json();
+                if (resp.ok && res.status === 'success') {
+                    showToast(res.message || "Seluruh kuota pengguna berhasil direset!", 'success');
+                    setTimeout(() => window.location.reload(), 600);
+                } else {
+                    showToast(res.message || "Gagal mereset kuota.", 'danger');
+                }
+            } catch (err) {
+                showToast("Terjadi kendala koneksi ke server.", 'danger');
+            } finally {
+                btnResetAll.disabled = false;
+                btnResetAll.innerHTML = `
+                    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span>Reset Semua Kuota Pengguna</span>
+                `;
+            }
+        });
+    }
+
+    // Tombol Bersihkan Log
+    const btnClearLogs = document.getElementById('btn-clear-logs');
+    if (btnClearLogs) {
+        btnClearLogs.addEventListener('click', async () => {
+            const confirmed = window.confirm("Hapus seluruh catatan log aktivitas di memory cache?");
+            if (!confirmed) return;
+
+            btnClearLogs.disabled = true;
+            try {
+                const resp = await fetch('/api/admin/clear-logs/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                });
+                const res = await resp.json();
+                if (resp.ok && res.status === 'success') {
+                    showToast("Log aktivitas berhasil dibersihkan!", 'info');
+                    setTimeout(() => window.location.reload(), 400);
+                } else {
+                    showToast(res.message || "Gagal membersihkan log.", 'danger');
+                }
+            } catch (err) {
+                showToast("Koneksi gagal saat membersihkan log.", 'danger');
+            } finally {
+                btnClearLogs.disabled = false;
+            }
+        });
+    }
+
+    // Delegasi Tombol Reset Per-IP
+    const logsTbody = document.getElementById('logs-tbody');
+    if (logsTbody) {
+        logsTbody.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-reset-single-ip');
+            if (!btn) return;
+
+            const targetIp = btn.getAttribute('data-ip');
+            if (!targetIp) return;
+
+            btn.disabled = true;
+            btn.textContent = "...";
+
+            try {
+                const resp = await fetch('/api/admin/reset-user-quota/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify({ ip: targetIp }),
+                });
+                const res = await resp.json();
+                if (resp.ok && res.status === 'success') {
+                    showToast(res.message || `Kuota IP ${targetIp} berhasil direset!`, 'success');
+                    // Perbarui visual kuota pada baris yang memiliki IP sama
+                    const rows = document.querySelectorAll(`tr[data-ip="${targetIp}"]`);
+                    rows.forEach(r => {
+                        const valEl = r.querySelector('.user-quota-val');
+                        if (valEl) {
+                            valEl.style.color = '#34d399';
+                            valEl.textContent = '🟢 5/5';
+                        }
+                    });
+                } else {
+                    showToast(res.message || "Gagal mereset kuota pengguna.", 'danger');
+                }
+            } catch (err) {
+                showToast("Terjadi kendala koneksi ke server.", 'danger');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Reset";
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+

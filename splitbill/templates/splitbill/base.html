@@ -64,6 +64,14 @@
                     <span class="quota-indicator" style="background:#10b981; box-shadow:0 0 8px #10b981;"></span>
                     <span class="quota-label">Admin: </span><strong>Unlimited</strong>
                 </div>
+                <a href="{% url 'splitbill:admin_dashboard' %}" class="btn btn-secondary btn-sm btn-nav-dashboard"
+                    title="Buka Dashboard Khusus Admin">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    <span class="btn-text">Dashboard Admin</span>
+                </a>
                 <button type="button" id="btn-admin-reset-quota" class="btn btn-secondary btn-sm btn-nav-reset"
                     title="Reset kuota harian IP saat ini (Khusus Admin)">
                     <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">

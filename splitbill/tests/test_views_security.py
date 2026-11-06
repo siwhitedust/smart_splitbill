@@ -348,6 +348,74 @@ class ViewsAndSecurityTest(TestCase):
         self.assertContains(detail_resp, 'Fani')
         self.assertIn('(Bagi Rata)', detail_resp.context['share_text'])
 
+    def test_admin_dashboard_access_denied_for_anonymous(self):
+        """User tanpa login ditolak dan diarahkan saat mengakses /admin-dashboard/."""
+        resp = self.client.get('/admin-dashboard/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('login=required', resp.url)
+
+    def test_admin_dashboard_access_granted_for_admin(self):
+        """Admin yang login dapat mengakses /admin-dashboard/ dengan status 200."""
+        self.client.post(
+            '/api/login/',
+            data=json.dumps({'username': 'admin', 'password': 'superadmin123'}),
+            content_type='application/json'
+        )
+        resp = self.client.get('/admin-dashboard/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Dashboard Khusus Admin')
+        self.assertContains(resp, 'Log Sederhana Aktivitas Pengguna')
+        self.assertTemplateUsed(resp, 'splitbill/admin_dashboard.html')
+
+    def test_admin_reset_all_quota_api(self):
+        """Endpoint /api/admin/reset-all-quota/ berhasil mereset seluruh kuota bagi admin."""
+        # Anon ditolak
+        resp_anon = self.client.post('/api/admin/reset-all-quota/')
+        self.assertEqual(resp_anon.status_code, 403)
+
+        # Admin login
+        self.client.post(
+            '/api/login/',
+            data=json.dumps({'username': 'admin', 'password': 'superadmin123'}),
+            content_type='application/json'
+        )
+        resp = self.client.post('/api/admin/reset-all-quota/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['status'], 'success')
+
+    def test_admin_reset_user_quota_api(self):
+        """Endpoint /api/admin/reset-user-quota/ mereset kuota untuk IP spesifik."""
+        # Anon ditolak
+        resp_anon = self.client.post('/api/admin/reset-user-quota/', data=json.dumps({'ip': '10.0.0.99'}), content_type='application/json')
+        self.assertEqual(resp_anon.status_code, 403)
+
+        # Admin login
+        self.client.post(
+            '/api/login/',
+            data=json.dumps({'username': 'admin', 'password': 'superadmin123'}),
+            content_type='application/json'
+        )
+        resp = self.client.post('/api/admin/reset-user-quota/', data=json.dumps({'ip': '10.0.0.99'}), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['status'], 'success')
+        self.assertEqual(resp.json()['ip'], '10.0.0.99')
+
+    def test_admin_clear_logs_api(self):
+        """Endpoint /api/admin/clear-logs/ membersihkan log aktivitas di memory cache."""
+        # Anon ditolak
+        resp_anon = self.client.post('/api/admin/clear-logs/')
+        self.assertEqual(resp_anon.status_code, 403)
+
+        # Admin login
+        self.client.post(
+            '/api/login/',
+            data=json.dumps({'username': 'admin', 'password': 'superadmin123'}),
+            content_type='application/json'
+        )
+        resp = self.client.post('/api/admin/clear-logs/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['status'], 'success')
+
 
 
 

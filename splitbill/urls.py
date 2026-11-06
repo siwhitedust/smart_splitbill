@@ -18,5 +18,9 @@ urlpatterns = [
     path('api/login/', views.login_api, name='api_login'),
     path('api/logout/', views.logout_api, name='api_logout'),
     path('api/admin/reset-kuota/', views.admin_reset_quota_api, name='api_admin_reset_quota'),
+    path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('api/admin/reset-all-quota/', views.admin_reset_all_quota_api, name='api_admin_reset_all_quota'),
+    path('api/admin/reset-user-quota/', views.admin_reset_user_quota_api, name='api_admin_reset_user_quota'),
+    path('api/admin/clear-logs/', views.admin_clear_logs_api, name='api_admin_clear_logs'),
 ]
 
