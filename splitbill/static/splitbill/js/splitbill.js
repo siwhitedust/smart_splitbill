@@ -83,8 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Untuk user biasa
-        if (remainingQuota === 0 || remainingQuota === '0' || remainingQuota === 'Habis') {
-            quotaBadgeEl.textContent = 'Habis';
+        if (remainingQuota === 0 || remainingQuota === '0' || remainingQuota === 'Habis' || !remainingQuota) {
+            quotaBadgeEl.textContent = '0';
             if (quotaIndicator) quotaIndicator.className = 'quota-indicator empty';
         } else {
             quotaBadgeEl.textContent = `${remainingQuota}/5`;
