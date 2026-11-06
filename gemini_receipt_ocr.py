@@ -44,6 +44,9 @@ DEFAULT_FALLBACK_CHAIN = [
     "gemini-3.5-flash",
 ]
 
+# Batas waktu timeout per model (dalam detik). Default: 10 detik.
+DEFAULT_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10.0"))
+
 
 def get_model_fallback_chain(preferred_model: Optional[str] = None) -> List[str]:
     """
@@ -149,12 +152,13 @@ PEDOMAN PENTING:
 
 import httpx
 
-def get_genai_client() -> genai.Client:
+def get_genai_client(timeout_seconds: Optional[float] = None) -> genai.Client:
     """
     Menginisialisasi client Google GenAI SDK dengan konfigurasi HTTP yang tangguh:
     1. Memaksa koneksi IPv4 (local_address='0.0.0.0') untuk menghindari 'IPv6 blackhole'
        yang sering terjadi pada ISP Indonesia (Indihome/Telkomsel/Biznet/FirstMedia).
-    2. Timeout yang lebih toleran (connect=30s, read=60s) untuk mencegah SSL handshake timeout.
+    2. Timeout per-model diatur ke 10 detik (default) agar jika model lambat/macet,
+       sistem langsung beralih (fallback) ke model cadangan berikutnya secara cepat.
     3. Mendukung proxy (HTTP_PROXY / HTTPS_PROXY) dan custom GEMINI_BASE_URL jika diperlukan.
     """
     api_key = os.getenv("GEMINI_API_KEY") or GEMINI_API_KEY
@@ -164,18 +168,20 @@ def get_genai_client() -> genai.Client:
             "Harap atur GEMINI_API_KEY=AIzaSy... di file .env Anda."
         )
 
+    timeout_val = timeout_seconds if timeout_seconds is not None else DEFAULT_TIMEOUT_SECONDS
+
     # Buat transport httpx khusus: Paksa IPv4 dan atur retries transport
     transport = httpx.HTTPTransport(
         local_address="0.0.0.0",  # Memaksa IPv4, melewati masalah timeout IPv6
         retries=2,
     )
 
-    # Konfigurasi timeout koneksi & TLS handshake yang longgar
+    # Konfigurasi timeout per model (10 detik untuk connect, read, write)
     timeout_config = httpx.Timeout(
-        connect=30.0,  # 30 detik untuk koneksi TCP & SSL Handshake
-        read=60.0,     # 60 detik untuk membaca respons AI
-        write=60.0,    # 60 detik untuk mengunggah gambar
-        pool=30.0      # 30 detik untuk antrean connection pool
+        connect=timeout_val,  # Batas waktu koneksi TCP & SSL Handshake
+        read=timeout_val,     # Batas waktu membaca respons AI (jika lewat, beralih ke model cadangan)
+        write=timeout_val,    # Batas waktu mengunggah gambar
+        pool=timeout_val      # Batas waktu antrean connection pool
     )
 
     # Buat instance httpx.Client khusus
@@ -190,7 +196,8 @@ def get_genai_client() -> genai.Client:
 
     http_options = types.HttpOptions(
         httpx_client=custom_httpx_client,
-        base_url=base_url
+        base_url=base_url,
+        timeout=int(timeout_val * 1000),  # Milidetik untuk types.HttpOptions
     )
 
     return genai.Client(
@@ -261,6 +268,7 @@ def scan_receipt_gemini(
     image_input: Union[str, Path, bytes, io.BytesIO, Image.Image, Any],
     model: Optional[str] = None,
     enable_fallback: bool = True,
+    timeout_seconds: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Mengekstrak informasi struk belanja/restoran menggunakan Gemini Flash API.
@@ -268,20 +276,25 @@ def scan_receipt_gemini(
     1. temperature=0.0: Mematikan sifat 'kreatif' AI agar membaca teks apa adanya secara kaku & konsisten.
     2. response_schema=ReceiptData (Pydantic Structured Outputs): Menjamin 100% format JSON valid.
     3. Model Cadangan Otomatis (Fallback): Otomatis berpindah dari model utama (gemini-2.5-flash)
-       ke model cadangan (gemini-2.5-flash-lite, gemini-2.0-flash, gemini-3.5-flash-lite)
-       saat kuota harian habis (429) atau server Google sedang sibuk (503).
+       ke model cadangan (gemini-3.5-flash-lite, gemini-3.1-flash-lite, gemini-3.5-flash)
+       saat kuota harian habis (429), server Google sedang sibuk (503), atau waktu pemrosesan melebihi 10 detik.
+    4. Timeout Per-Model: Batas waktu maksimal 10 detik per model panggilan API. Jika lebih dari 10 detik,
+       langsung fallback otomatis ke model cadangan berikutnya.
 
     :param image_input: File path, bytes gambar, atau objek file upload
     :param model: Model pilihan yang ingin diprioritaskan (opsional)
     :param enable_fallback: Apakah otomatis berpindah ke model cadangan jika model utama gagal
+    :param timeout_seconds: Batas waktu timeout per-model dalam detik (default: 10.0 detik)
     :return: Dictionary berisi data transaksi yang rapi dan terstruktur
     """
     try:
         # 1. Muat dan validasi gambar dengan Pillow (terkompresi & teroptimasi)
         pil_image = load_image(image_input)
 
-        # 2. Inisialisasi client Gemini
-        client = get_genai_client()
+        timeout_val = timeout_seconds if timeout_seconds is not None else DEFAULT_TIMEOUT_SECONDS
+
+        # 2. Inisialisasi client Gemini dengan konfigurasi timeout per-model
+        client = get_genai_client(timeout_seconds=timeout_val)
 
         # 3. Tentukan rantai model yang akan dicoba (Primary -> Fallbacks)
         models_to_try = get_model_fallback_chain(model) if enable_fallback else [model or PRIMARY_MODEL]
@@ -295,10 +308,10 @@ def scan_receipt_gemini(
         for idx, current_model in enumerate(models_to_try):
             is_fallback = (idx > 0)
             prefix = f"[Fallback Cadangan #{idx}] " if is_fallback else ""
-            logger.info(f"{prefix}Mengirim gambar struk ke model '{current_model}' (temperature=0.0)...")
+            logger.info(f"{prefix}Mengirim gambar struk ke model '{current_model}' (timeout={int(timeout_val)}s, temperature=0.0)...")
 
             try:
-                # Panggilan Gemini API dengan Structured Outputs & temperature 0.0
+                # Panggilan Gemini API dengan Structured Outputs & temperature 0.0 serta timeout per-model
                 resp = client.models.generate_content(
                     model=current_model,
                     contents=[
@@ -310,6 +323,9 @@ def scan_receipt_gemini(
                         response_mime_type="application/json",
                         response_schema=ReceiptData,
                         temperature=0.0,  # Wajib 0.0: Matikan kreatifitas, baca teks kaku & konsisten
+                        http_options=types.HttpOptions(
+                            timeout=int(timeout_val * 1000)
+                        ),
                     ),
                 )
                 if resp and resp.text:
@@ -320,6 +336,7 @@ def scan_receipt_gemini(
             except Exception as err:
                 last_error = err
                 err_str = str(err)
+                err_lower = err_str.lower()
 
                 # Deteksi tipe kendala untuk log penjelasan yang informatif
                 if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
@@ -328,6 +345,8 @@ def scan_receipt_gemini(
                     reason = "Server Google sedang sibuk / High demand (503 UNAVAILABLE)"
                 elif "404" in err_str or "NOT_FOUND" in err_str:
                     reason = "Model tidak tersedia / Dialihkan ke generasi terbaru (404 NOT_FOUND)"
+                elif any(k in err_lower for k in ["timeout", "timed out", "time out", "deadline"]):
+                    reason = f"Waktu pemrosesan melebihi {int(timeout_val)} detik (Timeout)"
                 else:
                     reason = err_str.split("\n")[0][:120]
 

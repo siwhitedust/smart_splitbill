@@ -61,7 +61,7 @@ class OCRReceiptService:
         except Exception as e:
             err_msg = str(e)
             err_lower = err_msg.lower()
-            if any(k in err_lower for k in ["503", "unavailable", "server google sedang sibuk", "high demand", "server sedang sibuk", "semua model"]):
+            if any(k in err_lower for k in ["503", "unavailable", "server google sedang sibuk", "high demand", "server sedang sibuk", "semua model", "timeout", "timed out", "time out", "deadline"]):
                 raise ServerBusyError("server sedang sibuk")
             if any(k in err_lower for k in ["429", "resource_exhausted", "quota", "kuota"]):
                 raise QuotaExceededError("kuota 1 hari sudah habis see you besok")
@@ -70,7 +70,7 @@ class OCRReceiptService:
         if gemini_res.get("status") == "error":
             err_msg = gemini_res.get("message", "")
             err_lower = err_msg.lower()
-            if any(k in err_lower for k in ["503", "unavailable", "server google sedang sibuk", "high demand", "server sedang sibuk", "semua model"]):
+            if any(k in err_lower for k in ["503", "unavailable", "server google sedang sibuk", "high demand", "server sedang sibuk", "semua model", "timeout", "timed out", "time out", "deadline"]):
                 raise ServerBusyError("server sedang sibuk")
             if any(k in err_lower for k in ["429", "resource_exhausted", "quota", "kuota"]):
                 raise QuotaExceededError("kuota 1 hari sudah habis see you besok")

@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await response.json();
 
                 if (!response.ok || result.status !== 'success') {
-                    if (response.status === 503 || (result.message && (result.message.includes('server sedang sibuk') || result.message.includes('503') || result.message.includes('Semua model')))) {
+                    if (response.status === 503 || (result.message && (result.message.includes('server sedang sibuk') || result.message.includes('503') || result.message.includes('Semua model') || result.message.includes('timeout') || result.message.includes('timed out')))) {
                         throw new Error('server sedang sibuk');
                     }
                     if (response.status === 429 || (result.message && result.message.includes('kuota 1 hari sudah habis'))) {
@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 goToStep(2);
             } catch (err) {
                 let msg = err.message || "Gagal memproses foto struk.";
-                if (msg.includes("server sedang sibuk") || msg.includes("503") || msg.includes("Semua model") || msg.includes("UNAVAILABLE") || msg.includes("High demand")) {
+                if (msg.includes("server sedang sibuk") || msg.includes("503") || msg.includes("Semua model") || msg.includes("UNAVAILABLE") || msg.includes("High demand") || msg.includes("timeout") || msg.includes("timed out")) {
                     msg = "server sedang sibuk";
                 }
                 showToast(msg, 'danger');

@@ -6,11 +6,14 @@ Unit test untuk OCR Receipt Service berbasis Gemini Flash API:
 """
 
 import io
-from unittest.mock import patch
+import json
+from unittest.mock import patch, MagicMock
+import httpx
 from PIL import Image
 from django.test import SimpleTestCase
 from django.core.files.uploadedfile import SimpleUploadedFile
 from splitbill.services.ocr_service import OCRReceiptService, QuotaExceededError, ServerBusyError
+from gemini_receipt_ocr import scan_receipt_gemini
 
 
 class OCRReceiptServiceTest(SimpleTestCase):
@@ -155,3 +158,53 @@ class OCRReceiptServiceTest(SimpleTestCase):
         result = self.service.process_receipt_image(uploaded)
         self.assertEqual(result['tax'], '0')
         self.assertTrue(result['is_tax_inclusive'])
+
+    @patch('splitbill.services.ocr_service.scan_receipt_gemini')
+    def test_timeout_fallback_error_handling(self, mock_scan):
+        """Uji jika terjadi error semua model gagal karena timeout (>10 detik)."""
+        mock_scan.side_effect = RuntimeError(
+            "Semua model (utama & cadangan) gagal memproses struk. Rincian kegagalan: "
+            "gemini-2.5-flash: Waktu pemrosesan melebihi 10 detik (Timeout); "
+            "gemini-3.5-flash-lite: Waktu pemrosesan melebihi 10 detik (Timeout)"
+        )
+
+        img = Image.new('RGB', (100, 100), color=(255, 255, 255))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        uploaded = SimpleUploadedFile('struk.jpg', buf.getvalue(), content_type='image/jpeg')
+
+        with self.assertRaises(ServerBusyError) as ctx:
+            self.service.process_receipt_image(uploaded)
+
+        self.assertEqual(str(ctx.exception), "server sedang sibuk")
+
+    @patch('gemini_receipt_ocr.get_genai_client')
+    def test_scan_receipt_gemini_fallback_on_timeout(self, mock_get_client):
+        """Uji scan_receipt_gemini otomatis fallback ke model berikutnya saat model pertama timeout (>10 detik)."""
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+
+        success_payload = {
+            "restaurant_name": "Bakmi Enak",
+            "items": [{"name": "Bakmi Ayam", "qty": 1, "unit_price": 25000, "total_price": 25000}],
+            "subtotal": 25000,
+            "tax": 0,
+            "service_charge": 0,
+            "discount": 0,
+            "grand_total": 25000,
+        }
+        success_response = MagicMock()
+        success_response.text = json.dumps(success_payload)
+
+        # Model pertama mengalami ReadTimeout (>10 detik), model kedua sukses
+        mock_client.models.generate_content.side_effect = [
+            httpx.ReadTimeout("The read operation timed out after 10.0 seconds"),
+            success_response
+        ]
+
+        img = Image.new('RGB', (100, 100), color=(255, 255, 255))
+        result = scan_receipt_gemini(img, timeout_seconds=10.0)
+
+        self.assertEqual(result['status'], 'success')
+        self.assertEqual(result['data']['restaurant_name'], 'Bakmi Enak')
+        self.assertEqual(mock_client.models.generate_content.call_count, 2)

@@ -125,8 +125,8 @@ def process_ocr_api(request):
         logger.error(f"Kesalahan internal saat memproses OCR: {e}", exc_info=True)
         err_str = str(e).lower()
 
-        # Deteksi jika server Google / model AI sedang sibuk (503 / high demand / semua model gagal)
-        if "server sedang sibuk" in err_str or any(k in err_str for k in ["503", "unavailable", "server google sedang sibuk", "high demand", "semua model"]):
+        # Deteksi jika server Google / model AI sedang sibuk (503 / high demand / semua model gagal / timeout > 10 detik)
+        if "server sedang sibuk" in err_str or any(k in err_str for k in ["503", "unavailable", "server google sedang sibuk", "high demand", "semua model", "timeout", "timed out", "time out", "deadline"]):
             return JsonResponse({
                 'status': 'error',
                 'message': 'server sedang sibuk',
