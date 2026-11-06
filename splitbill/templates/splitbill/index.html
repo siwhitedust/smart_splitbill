@@ -13,8 +13,13 @@
             bagi menu ke teman-temanmu secara adil, dan bagikan rinciannya via link langsung.
         </p>
 
+        <!-- Judul Pilihan Opsi -->
+        <h2 class="hero-options-title" style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-top: 2rem; margin-bottom: 0.85rem; letter-spacing: -0.01em;">
+            Silahkan Pilih Opsi
+        </h2>
+
         <!-- 2 Tombol Pilihan Mode Utama: Bagi Rata & Sendiri-sendiri (Tampilan Terang & Serasi) -->
-        <div class="hero-mode-grid">
+        <div class="hero-mode-grid" style="margin-top: 0;">
             <!-- Mode 1: Bagi Rata -->
             <a href="{% url 'splitbill:create' %}?mode=bagi-rata" class="hero-mode-card primary" title="Bagi seluruh total tagihan sama rata ke sejumlah orang">
                 <div class="hero-mode-icon">
