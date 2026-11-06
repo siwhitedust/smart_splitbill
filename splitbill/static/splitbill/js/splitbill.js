@@ -220,13 +220,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (receiptInput) {
-        receiptInput.addEventListener('change', (e) => handleFileSelection(e.target.files[0]));
+        receiptInput.addEventListener('click', (e) => { e.target.value = ''; });
+        receiptInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
     }
     if (cameraInput) {
-        cameraInput.addEventListener('change', (e) => handleFileSelection(e.target.files[0]));
+        cameraInput.addEventListener('click', (e) => { e.target.value = ''; });
+        cameraInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
     }
 
     if (uploadDropzone) {
+        uploadDropzone.addEventListener('click', (e) => {
+            if (e.target.closest('#receipt-camera-input') || e.target.closest('label[for="receipt-camera-input"]')) {
+                return;
+            }
+            if (e.target.closest('#receipt-file-input') || e.target.closest('label[for="receipt-file-input"]')) {
+                return;
+            }
+            if (e.target.closest('#btn-change-photo')) {
+                return;
+            }
+            if (receiptInput && !state.selectedFile) {
+                receiptInput.click();
+            }
+        });
+
         uploadDropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadDropzone.classList.add('drag-active');
@@ -794,11 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-                showToast("Pemeriksaan struk dibatalkan. Kuota Anda tidak berkurang.", 'info');
-            });
-        }
-    }
-
     // ==========================================
     // STEP 3: PEMBAGIAN PESANAN PER ORANG
     // ==========================================
@@ -1198,7 +1218,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const remaining = targetItem.qty - alreadyAlloc - currentInModalQty;
 
         if (remaining <= 0) {
-            showToast(`Kuantitas untuk "${targetItem.name}" sudah habis teralokasikan.`, 'warning');
             return;
         }
 
