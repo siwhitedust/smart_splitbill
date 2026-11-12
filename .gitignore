@@ -12,6 +12,10 @@ ENV/
 # Environment variables
 .env
 
+# Database
+*.sqlite3
+db.sqlite3
+
 # Static files collected for production
 staticfiles/
 
@@ -22,3 +26,14 @@ staticfiles/
 *.tmp
 /tmp/
 
+# Installers & Package binaries
+*.rpm
+*.deb
+cloudflared*
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

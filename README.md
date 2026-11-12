@@ -1,36 +1,44 @@
 # Smart Splitbill 🧾⚡
-**Aplikasi Web Pembagi Tagihan Pintar Berbasis OCR & Django Cache (TTL 10 Menit)**
+**Aplikasi Web Pembagi Tagihan Pintar Berbasis AI Vision (Gemini Flash) & Django Cache (TTL 10 Menit)**
 
-Smart Splitbill adalah aplikasi web yang memungkinkan pengguna memotret struk pembayaran, mengekstrak rincian transaksi otomatis menggunakan OCR lokal (Tesseract & OpenCV), membagikan pesanan ke beberapa orang secara interaktif (Drag & Drop + Touch-friendly), serta menghitung proporsi pajak, biaya layanan, dan diskon secara adil dan presisi tanpa selisih pembulatan (menggunakan metode Largest Remainder).
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/django-5.1-green)](https://www.djangoproject.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![AI Engine](https://img.shields.io/badge/AI%20OCR-Google%20Gemini%20Flash-orange)](https://aistudio.google.com/)
+
+Smart Splitbill adalah aplikasi web *privacy-first* untuk membagi tagihan makan/belanja secara adil, cepat, dan presisi. Cukup unggah atau foto struk kasir, AI akan membaca seluruh rincian transaksi otomatis, lalu Anda dapat membagi pesanan ke masing-masing orang secara interaktif (Drag & Drop atau Sentuhan Mobile). Pajak, biaya layanan, dan diskon dihitung proporsional tanpa ada selisih pembulatan (menggunakan metode **Largest Remainder**).
 
 ---
 
 ## ✨ Fitur Unggulan
 
-1. **OCR Struk Kasir Lokal (Tanpa Biaya API Eksternal):**
-   - Menggunakan Tesseract OCR dengan bahasa Indonesia (`ind`) dan Inggris (`eng`).
-   - Pra-pemrosesan gambar berbasis OpenCV (Grayscale, Denoising, Otsu Thresholding) untuk mempertajam struk yang buram atau minim kontras.
-   - Deteksi otomatis nama restoran, tanggal, daftar item, kuantitas, harga, subtotal, pajak, biaya layanan, diskon, dan grand total.
+1. **AI Vision OCR Canggih (Google Gemini Flash):**
+   - Menggunakan model `gemini-2.5-flash` resmi dari Google GenAI SDK dengan *Structured Outputs* (Pydantic).
+   - Ekstraksi otomatis: nama restoran, tanggal, daftar item, harga satuan, kuantitas, subtotal, pajak, diskon, service charge, hingga grand total.
+   - **Multi-Model Fallback:** Jika kuota model utama habis atau server Google sedang sibuk, aplikasi otomatis beralih ke model cadangan secara cerdas.
 
-2. **Privasi & Keamanan Tinggi:**
-   - **Tanpa Database Relasional:** Tidak menyimpan tagihan ke database permanen seperti SQLite, PostgreSQL, atau MySQL.
-   - **Penyimpanan Sementara (TTL 600 Detik):** Seluruh tagihan disimpan di Django Cache selama tepat 10 menit (600 detik). Setelah itu, data otomatis kedaluwarsa dan dihapus.
-   - **Foto Struk Segera Dihapus:** File foto struk diproses di memori/temporary file dan **selalu dihapus** seketika proses OCR selesai (`try...finally`). Foto tidak pernah disimpan ke folder media atau static.
-   - **URL Tagihan Unik & Read-Only:** Tagihan dibagikan melalui token kriptografis acak (contoh: `/tagihan/x8kPo9QmT2vN7aBc`). URL hanya dapat membaca tagihan dan tidak dapat digunakan untuk memanipulasi data.
-   - **Rate Limiting Backend:** Maksimal 5 kali analisis struk per hari per IP + Session (direset tengah malam WIB sesuai zona waktu `Asia/Jakarta`).
+2. **Privasi & Keamanan Tinggi (Privacy-First):**
+   - **Tanpa Database Tagihan Permanen:** Data tagihan sama sekali tidak disimpan ke tabel database permanen (SQLite/PostgreSQL).
+   - **TTL 10 Menit (600 Detik):** Seluruh data tagihan disimpan sementara di Django Cache (*In-Memory*). Setelah 10 menit, data otomatis hangus dan musnah dari server.
+   - **Foto Struk Dihapus Seketika:** Gambar struk diproses di memori/temporary file dan **langsung dihapus** begitu ekstraksi selesai (`try...finally`). Tidak ada file foto yang tertinggal di server.
+   - **Read-Only Shared URL:** Tagihan dibagikan lewat tautan unik acak (contoh: `/tagihan/x8kPo9QmT2vN7aBc`) yang hanya bisa dibaca dan tidak bisa dimanipulasi orang lain.
+   - **Rate Limiting:** Proteksi kuota analisis struk per hari per IP + Session untuk mencegah penyalahgunaan API.
 
-3. **Kalkulasi Bisnis Presisi (Zero-Rounding-Discrepancy):**
-   - Menggunakan tipe data `Decimal` (bukan float) untuk mencegah masalah floating point.
-   - Pembagian proporsional untuk Pajak, Service Charge, Diskon, dan Biaya Tambahan.
-   - Metode **Largest Remainder** untuk pembulatan Rupiah yang deterministik sehingga jumlah total tiap peserta **selalu 100% sama dengan Grand Total pada struk**.
-   - Mendukung porsi pecahan (misal 0.5 atau 1.5).
+3. **Kalkulasi Finansial Presisi (Zero-Rounding-Discrepancy):**
+   - Menggunakan tipe data `Decimal` presisi tinggi (mencegah bug *floating point*).
+   - Pajak, Service Charge, dan Diskon didistribusikan secara proporsional sesuai nominal pesanan tiap individu.
+   - Menggunakan metode matematika **Largest Remainder** untuk pembulatan Rupiah yang deterministik, menjamin **jumlah iuran tiap orang 100% tepat sama dengan Grand Total pada struk**.
+   - Mendukung porsi pecahan (misal 0.5 jika 1 menu dibagi berdua).
 
 4. **UI/UX Modern: Simple, Neutral Superglass:**
-   - Desain minimalis bernuansa Superglass (translucent glassmorphism, border tipis, kontras tinggi).
-   - Wizard intuitif (Upload -> Review OCR -> Bagi Pesanan -> Review -> URL Berbagi).
-   - Modal Pembagian Pesanan 2 Kolom (desktop) & Fullscreen Vertikal (mobile).
-   - Drag & Drop HTML5 interaktif PLUS tombol alternatif `+ Tambah` yang nyaman untuk layar sentuh ponsel.
-   - Tombol instan *Salin Rincian untuk WhatsApp / Telegram*.
+   - Desain minimalis bernuansa *Superglass* (translucent glassmorphism, border tipis, kontras tinggi).
+   - Wizard intuitif (Upload Foto -> Review OCR -> Bagi Pesanan -> Simpan & Berbagi).
+   - Antarmuka pembagian pesanan interaktif (Drag & Drop di desktop + tombol `+ Tambah` cepat untuk layar sentuh ponsel).
+   - Tombol instan: **Salin Tautan** dan **Salin Rincian untuk WhatsApp / Telegram**.
+
+5. **Akses Publik Mudah & Deployment Ready:**
+   - Siap dijalankan dari laptop sendiri menggunakan **Cloudflare Tunnel (`cloudflared`)** tanpa perlu port forwarding atau IP publik.
+   - Siap dideploy ke cloud provider (Render, Railway, VPS) dengan **Gunicorn** dan **WhiteNoise**.
 
 ---
 
@@ -38,44 +46,34 @@ Smart Splitbill adalah aplikasi web yang memungkinkan pengguna memotret struk pe
 
 ```text
 smart_splitbill/
-├── config/                     # Konfigurasi Proyek Django
-│   ├── settings.py             # Pengaturan Django (Cache, Session, Security, Timezone)
-│   ├── urls.py                 # Routing URL utama
+├── config/                     # Pengaturan Utama Django
+│   ├── settings.py             # Konfigurasi App, Cache, Middleware, Security
+│   ├── urls.py                 # Routing URL global
 │   ├── asgi.py
 │   └── wsgi.py
-├── splitbill/                  # Aplikasi Utama Splitbill
-│   ├── services/               # Layer Service Terpisah (Clean Architecture)
-│   │   ├── cache_service.py    # Service Cache TTL 600s (LocMemCache / Redis)
-│   │   ├── ocr_service.py      # Ekstraksi Tesseract OCR & OpenCV Preprocessing
-│   │   ├── calculation_service.py # Logika Proporsional & Largest Remainder Rupiah
-│   │   └── rate_limiter.py     # Pembatas kuota 5x/hari (Asia/Jakarta)
-│   ├── static/splitbill/       # Aset Frontend
-│   │   ├── css/style.css       # Design System Simple Neutral Superglass
-│   │   └── js/
-│   │       ├── app.js          # Utilitas global (Toast, Countdown, Copy, Format Rupiah)
-│   │       └── splitbill.js    # Interaktivitas Wizard, Drag & Drop, In-Memory State
-│   ├── templates/splitbill/    # Template Django HTML
+├── splitbill/                  # Aplikasi Splitbill
+│   ├── services/               # Lapisan Layanan Bisnis (Clean Architecture)
+│   │   ├── ocr_service.py      # Integrasi Gemini Flash AI OCR & Error Handling
+│   │   ├── calculation_service.py # Logika Proporsional & Largest Remainder
+│   │   ├── cache_service.py    # Manajemen TTL Cache 600 detik
+│   │   └── rate_limiter.py     # Pembatas kuota harian per IP & Sesi
+│   ├── static/splitbill/       # Aset Frontend (CSS Superglass, Vanilla JS, Logo)
+│   ├── templates/splitbill/    # Template Tampilan HTML Django
 │   │   ├── base.html           # Layout dasar & Navbar
-│   │   ├── index.html          # Dashboard riwayat aktif sesi
-│   │   ├── create.html         # Wizard pembuatan splitbill terpadu
-│   │   ├── detail.html         # Shared bill read-only (/tagihan/<token>)
-│   │   └── expired.html        # Tampilan ramah bila tagihan kedaluwarsa (404)
-│   ├── tests/                  # Unit Test Komprehensif
-│   │   ├── test_calculation.py # Uji kalkulasi & pembulatan
-│   │   ├── test_cache_service.py # Uji TTL & sesi cache
-│   │   ├── test_rate_limiter.py# Uji batas 5x/hari
-│   │   ├── test_ocr_service.py # Uji parsing teks & pembersihan file
-│   │   └── test_views_security.py # Uji endpoint & keamanan
-│   ├── error_views.py          # Custom error handler (404, 500)
-│   ├── utils.py                # Helper format Rupiah, token, IP
-│   ├── validators.py           # Validasi file & payload
-│   ├── views.py                # Controller HTTP & API JSON
-│   └── urls.py                 # URL route aplikasi splitbill
-├── venv/                       # Virtual Environment Python
-├── .env.example                # Contoh environment variable
+│   │   ├── index.html          # Beranda & riwayat aktif
+│   │   ├── create.html         # Wizard pembuatan & pembagian tagihan
+│   │   ├── detail.html         # Halaman tagihan publik (read-only)
+│   │   └── expired.html        # Halaman jika tagihan telah kedaluwarsa
+│   ├── tests/                  # Unit Test Komprehensif (52 Test Cases)
+│   ├── error_views.py          # Custom handler 404 & 500
+│   ├── utils.py                # Helper format rupiah & token
+│   ├── validators.py           # Validasi upload & payload
+│   └── views.py                # Controller HTTP & Endpoint JSON
+├── gemini_receipt_ocr.py       # Engine ekstraksi struk via Google GenAI SDK
 ├── requirements.txt            # Dependensi Python
-├── manage.py                   # Runner CLI Django
-└── README.md                   # Dokumentasi
+├── .env.example                # Template Environment Variables
+├── manage.py                   # CLI Runner Django
+└── README.md                   # Dokumentasi Proyek
 ```
 
 ---
@@ -83,75 +81,79 @@ smart_splitbill/
 ## 🚀 Panduan Instalasi & Menjalankan Aplikasi
 
 ### 1. Kebutuhan Sistem
-- Python 3.10, 3.11, atau 3.12
-- Tesseract OCR (dengan paket bahasa Indonesia `ind` dan Inggris `eng`)
-
-#### Memasang Tesseract di Sistem (Jika belum terpasang):
-- **Ubuntu/Debian:**
-  ```bash
-  sudo apt-get update
-  sudo apt-get install tesseract-ocr tesseract-ocr-ind tesseract-ocr-eng libgl1
-  ```
-- **Fedora/RHEL:**
-  ```bash
-  sudo dnf install tesseract tesseract-langpack-ind tesseract-langpack-eng
-  ```
-- *(Catatan untuk environment ini: wrapper lokal Tesseract telah disediakan di dalam `venv/bin/tesseract`)*.
+- **Python:** 3.10, 3.11, atau 3.12
+- **Google Gemini API Key:** Dapatkan gratis di [Google AI Studio](https://aistudio.google.com/)
 
 ---
 
-### 2. Membuat Virtual Environment & Instalasi Dependency
+### 2. Kloning Repositori & Virtual Environment
 
 ```bash
-# Buat virtual environment
+# 1. Kloning repositori
+git clone https://github.com/siwhitedust/smart_splitbill.git
+cd smart_splitbill
+
+# 2. Buat virtual environment
 python3 -m venv venv
 
-# Aktifkan virtual environment
+# 3. Aktifkan virtual environment
+# Di Linux / macOS:
 source venv/bin/activate
+# Di Windows (PowerShell):
+# .\venv\Scripts\Activate.ps1
 
-# Instal seluruh dependensi Python
+# 4. Pasang seluruh dependensi
 pip install -r requirements.txt
 ```
 
 ---
 
-### 3. Konfigurasi Environment (Opsional)
+### 3. Konfigurasi Environment Variables
 
-Salin `.env.example` menjadi `.env` jika ingin mengubah pengaturan:
+Salin template konfigurasi `.env.example` menjadi `.env`:
+
 ```bash
 cp .env.example .env
 ```
 
-Isi variabel konfigurasi utama:
-- `DJANGO_DEBUG`: `True` untuk development, `False` untuk production.
-- `SPLITBILL_TTL_SECONDS`: Masa simpan tagihan (default `600` detik = 10 menit).
-- `RATE_LIMIT_DAILY_MAX`: Kuota analisis struk harian (default `5`).
-- `DJANGO_REDIS_URL`: URL Redis jika production (contoh: `redis://127.0.0.1:6379/1`). Bila kosong, aplikasi otomatis menggunakan `LocMemCache`.
+Buka file `.env` dan masukkan kunci API Gemini Anda:
+```ini
+GEMINI_API_KEY=AIzaSy_masukkan_api_key_anda_di_sini
+```
 
 ---
 
-### 4. Menjalankan Server Pengembangan
+### 4. Migrasi Database & Jalankan Server
 
 ```bash
-source venv/bin/activate
+# Migrasi database SQLite lokal (untuk auth dan logging)
+python manage.py migrate
+
+# Jalankan server pengembangan
 python manage.py runserver 8000
 ```
-Buka peramban (browser) di: **`http://127.0.0.1:8000/`**
+
+Buka browser Anda di: **`http://127.0.0.1:8000/`**
+
+---
+
+### 5. (Opsional) Membuka Akses Publik via Cloudflare Tunnel
+
+Jika Anda ingin orang lain/teman dapat membuka web ini langsung dari server lokal laptop Anda secara aman dan gratis via HTTPS:
+
+1. Unduh `cloudflared` sesuai sistem operasi Anda.
+2. Di terminal baru, jalankan:
+   ```bash
+   cloudflared tunnel --url http://127.0.0.1:8000
+   ```
+3. Salin URL publik `https://...trycloudflare.com` yang dihasilkan dan bagikan ke teman Anda!
 
 ---
 
 ## 🧪 Menjalankan Pengujian (Testing)
 
-Proyek ini dilengkapi dengan 20 test cases komprehensif:
-- Pengujian kalkulasi 1 peserta & banyak peserta
-- Pengujian porsi pecahan (0.5 porsi)
-- Pengujian pembulatan Largest Remainder Rupiah
-- Pengujian kedaluwarsa TTL cache
-- Pengujian rate limiter 5x/hari
-- Pengujian proteksi upload file berbahaya (.exe/.txt) & ukuran berlebih (>5MB)
-- Pengujian OCR end-to-end dengan pembersihan foto seketika
+Proyek ini telah dilengkapi dengan 52 unit test otomatis yang mencakup pengujian kalkulasi finansial, pembulatan pecahan, penanganan kesalahan API, proteksi upload file, hingga masa kedaluwarsa sesi:
 
-Untuk menjalankan seluruh pengujian:
 ```bash
 source venv/bin/activate
 python manage.py test splitbill.tests
@@ -159,41 +161,14 @@ python manage.py test splitbill.tests
 
 ---
 
-## 📖 Cara Menggunakan Aplikasi
+## 🤝 Panduan Kontribusi
 
-1. **Halaman Beranda (`/`):**
-   - Melihat daftar tagihan aktif yang pernah disimpan selama 10 menit terakhir.
-   - Setiap kartu menampilkan restoran, jumlah orang, total tagihan, dan sisa waktu aktif.
-   - Klik tombol **Buat Splitbill Baru**.
+Kontribusi dari komunitas sangat diterima! Silakan baca panduan di [CONTRIBUTING.md](CONTRIBUTING.md) untuk informasi cara melaporkan bug, menyarankan fitur, atau mengirimkan *Pull Request*.
 
-2. **Langkah 1 — Foto Struk:**
-   - Gunakan tombol kamera ponsel atau unggah foto struk dari galeri.
-   - Tekan **Baca Struk Pembayaran**.
-   - *(Atau pilih opsi input manual jika tidak memiliki foto struk).*
+---
 
-3. **Langkah 2 — Periksa Hasil OCR:**
-   - Review data restoran, item menu, harga satuan, dan kuantitas.
-   - Edit, tambah, atau hapus item jika ada yang perlu disesuaikan.
-   - Isi komponen pajak, biaya layanan, diskon, dan grand total.
-   - Jika terdapat selisih antara item dan grand total struk, sistem akan memberikan notifikasi peringatan.
-   - Klik **Lanjutkan ke Pembagian Pesanan**.
+## 📄 Lisensi
 
-4. **Langkah 3 — Pembagian Pesanan:**
-   - Klik **+ Tambah Orang**.
-   - Di modal pembagian, seret menu pesanan dari kolom kiri ke kanan via Drag & Drop, atau gunakan tombol **+ Tambah** (sangat nyaman di layar sentuh ponsel).
-   - Tentukan porsi (mendukung porsi pecahan misal 0.5 jika 1 menu dimakan berdua).
-   - Subtotal, pajak, diskon, dan total per orang otomatis dihitung secara proporsional.
-   - Klik **Simpan Peserta**.
-   - Ulangi hingga semua menu pada struk habis teralokasikan.
-   - Klik **Selesai & Review Hasil**.
+Proyek ini dilisensikan di bawah lisensi **MIT License** — silakan baca file [LICENSE](LICENSE) untuk detail lengkap.
 
-5. **Langkah 4 — Review & Simpan Hasil:**
-   - Periksa ringkasan pembagian tiap peserta dalam kartu grid responsif.
-   - Total tiap peserta tampil tebal dan mencolok.
-   - Klik **Simpan Hasil Splitbill**.
-
-6. **Langkah 5 & Detail Tagihan (`/tagihan/<token>`):**
-   - Dapatkan URL unik yang aman dan read-only.
-   - Gunakan tombol **Salin URL** atau **Salin Rincian untuk WhatsApp** untuk membagikannya ke grup teman-teman.
-   - Tagihan memiliki masa berlaku 10 menit dengan live countdown timer.
-
+Dibuat dengan ❤️ oleh [siwhitedust](https://github.com/siwhitedust).

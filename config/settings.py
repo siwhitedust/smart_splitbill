@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -124,6 +125,16 @@ STATICFILES_DIRS = [
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Production Static Files Storage with WhiteNoise
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+
 # Batasan Upload File Gambar
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -150,8 +161,13 @@ else:
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.trycloudflare.com',
-    'http://localhost',
-    'http://127.0.0.1',
-]
+# CSRF Trusted Origins (Cloudflare Tunnel, Localhost, atau Domain Kustom)
+csrf_env = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '')
+if csrf_env:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_env.split(',') if origin.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://*.trycloudflare.com',
+        'http://localhost',
+        'http://127.0.0.1',
+    ]
