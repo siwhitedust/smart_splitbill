@@ -60,6 +60,16 @@ Smart Splitbill is a **privacy-first** web application designed to split dining 
 
 ---
 
+### ⚠️ Known Limitations & Roadmap
+
+- **Currency Support (Indonesian Rupiah / IDR Only):**  
+  Smart Splitbill is currently specifically designed and optimized for whole-number currency (**IDR**).
+  - Calculations and rounding (Largest Remainder) round to integer units (no decimal cents).
+  - Currencies with 2 decimal places (such as **USD `$`, EUR `€`, SGD `$`, GBP `£`**) are **not yet supported** (amounts with cents like `$14.50` will be rounded to the nearest whole integer).
+  - **Contribution Welcomed:** Adding dynamic multi-currency support and 2-decimal precision (`0.01` cent rounding) is on our roadmap. See [CONTRIBUTING.md](CONTRIBUTING.md) if you would like to help build this!
+
+---
+
 ### 📁 Project Directory Structure
 
 ```text
@@ -210,6 +220,16 @@ Smart Splitbill adalah aplikasi web *privacy-first* untuk membagi tagihan makan/
 5. **Akses Publik Mudah & Deployment Ready:**
    - Siap dijalankan dari laptop sendiri menggunakan **Cloudflare Tunnel (`cloudflared`)** tanpa perlu port forwarding atau IP publik.
    - Siap dideploy ke cloud provider (Render, Railway, VPS) dengan **Gunicorn** dan **WhiteNoise**.
+
+---
+
+### ⚠️ Batasan Saat Ini & Roadmap Pengembangan
+
+- **Dukungan Mata Uang (Khusus Rupiah / IDR):**  
+  Smart Splitbill saat ini dirancang dan dioptimalkan secara spesifik untuk mata uang bilangan bulat tanpa sen (**Rupiah / IDR**).
+  - Logika kalkulasi dan pembulatan Largest Remainder saat ini membulatkan ke bilangan bulat terdekat (tanpa pecahan sen).
+  - Mata uang dengan 2 angka desimal sen (seperti **Dolar USD `$`, Euro `€`, SGD `$`, GBP `£`**) **belum didukung** (nilai sen seperti `$14.50` akan dibulatkan ke bilangan bulat terdekat).
+  - **Terbuka untuk Kontribusi:** Penambahan fitur multi-currency dan presisi 2 desimal sen (`0.01`) ada dalam rencana roadmap kami. Silakan lihat [CONTRIBUTING.md](CONTRIBUTING.md) jika Anda ingin membantu mengembangkannya!
 
 ---
 

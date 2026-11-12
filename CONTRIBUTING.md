@@ -98,6 +98,15 @@ Open an **Issue** with the `enhancement` label and describe:
 
 ---
 
+### 🎯 Help Wanted / Good First Issues
+
+Looking for an impactful feature to contribute? Here are some top priorities on our roadmap:
+- **Multi-Currency & Cent Precision Support:** Adapt the Gemini OCR prompt, `CalculationService` (enabling `0.01` cent precision for Largest Remainder), and UI formatting to support currencies with 2 decimal places (such as USD `$`, EUR `€`, SGD `$`).
+- **Currency Selector UI:** Add a currency dropdown selector in the wizard interface.
+- **Export to PDF / Image:** Add one-click export for the bill breakdown summary.
+
+---
+
 <br>
 
 ---
@@ -182,6 +191,15 @@ Punya ide untuk membuat Smart Splitbill lebih baik?
 Silakan buka **Issue** baru dengan label `enhancement` dan jelaskan:
 - Masalah apa yang ingin diselesaikan oleh fitur tersebut.
 - Gambaran cara kerja fitur baru yang diusulkan.
+
+---
+
+### 🎯 Fitur yang Sedang Dibutuhkan (Roadmap Prioritas)
+
+Mencari fitur yang bermanfaat untuk dikerjakan? Berikut prioritas utama dalam roadmap kami:
+- **Dukungan Multi-Currency & Pecahan Sen:** Menyesuaikan skema/prompt Gemini OCR, `CalculationService` (mengaktifkan presisi sen `0.01` untuk Largest Remainder), dan pemformatan antarmuka agar mendukung mata uang dengan 2 desimal (seperti USD `$`, EUR `€`, SGD `$`).
+- **Dropdown Pemilih Mata Uang:** Menambahkan opsi pemilihan mata uang di antarmuka wizard.
+- **Ekspor Ringkasan ke PDF / Gambar:** Fitur simpan rincian tagihan dalam format gambar atau PDF untuk dibagikan secara offline.
 
 ---
 
